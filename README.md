@@ -1,4 +1,4 @@
-# concept2robot
+# Concept2Robot
 We aim to endow a robot with the ability to learn manipulation concepts that link natural language instructions to
 motor skills. Our goal is to learn a single multi-task policy that takes as input a natural language instruction and an image of
 the initial scene and outputs a robot motion trajectory to achieve the specified task. This policy has to generalize over different instructions and environments. Our insight is that we can approach this problem through Learning from Demonstration by leveraging large-scale video datasets of humans performing manipulation
