@@ -13,6 +13,36 @@ over variations of the environment. We also show examples of successful generali
 
 [Project Webpage](https://sites.google.com/view/concept2robot)
 
+## Installation
+
+1. Initialize repository
+```
+git submodule init && git submodule update
+```
+
+2. Install ffmpeg
+```
+sudo apt install autoconf automake build-essential cmake libass-dev libfreetype6-dev libjpeg-dev libtheora-dev libtool libvorbis-dev libx264-dev pkg-config wget yasm zlib1g-dev
+wget https://www.ffmpeg.org/releases/ffmpeg-4.2.1.tar.xz
+tar -xf ffmpeg-4.2.1.tar.xz
+cd ffmpeg-4.2.1
+./configure --disable-static --enable-shared --disable-doc
+make
+sudo make install
+```
+
+3. Install virtual environment
+```
+pip install pipenv
+pipenv install
+```
+
+4. Install CUDA >=9.2
+
+5. Download `data`, `models` folders into `ConceptManipulation` directory.
+
+## Activate virtual environment
+```pipenv shell```
 
 
 If you think our work is useful, please consider citing use with
