@@ -1,0 +1,41 @@
+{
+    "model_name": "model_resnet2",
+    "output_dir": "trained_models/",
+
+    "input_mode": "image",
+
+    "data_folder": "../../data/20bn-something-something-v2/dataset_raw/",
+
+    "json_data_train": "../../data/20bn-something-something-v2/annotations/something-something-v2-train.json",
+    "json_data_val": "../../data/20bn-something-something-v2/annotations/something-something-v2-validation.json",
+    "json_data_test": "../../data/20bn-something-something-v2/annotations/something-something-v2-test.json",
+    "json_file_labels": "../../data/20bn-something-something-v2/annotations/something-something-v2-labels.json",
+
+    "num_workers": 5,
+
+    "num_classes": 174,
+    "batch_size": 30,
+    "clip_size": 72,
+
+    "nclips_train": 1,
+    "nclips_val": 1,
+
+    "upscale_factor_train": 1.0,
+    "upscale_factor_eval": 1.0,
+
+    "step_size_train": 1,
+    "step_size_val": 1,
+
+    "lr": 0.008,
+    "last_lr": 0.00001,
+    "momentum": 0.9,
+    "weight_decay": 0.00001,
+    "num_epochs": -1,
+    "print_freq": 100,
+
+    "conv_model": "models.model_resnet2",
+    "input_spatial_size": 224,
+
+    "column_units": 512,
+    "save_features": true
+}
