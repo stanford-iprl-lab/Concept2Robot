@@ -1,4 +1,4 @@
-# concept2robot
+# Concept2Robot
 We aim to endow a robot with the ability to learn manipulation concepts that link natural language instructions to
 motor skills. Our goal is to learn a single multi-task policy that takes as input a natural language instruction and an image of
 the initial scene and outputs a robot motion trajectory to achieve the specified task. This policy has to generalize over different instructions and environments. Our insight is that we can approach this problem through Learning from Demonstration by leveraging large-scale video datasets of humans performing manipulation
@@ -13,6 +13,36 @@ over variations of the environment. We also show examples of successful generali
 
 [Project Webpage](https://sites.google.com/view/concept2robot)
 
+## Installation
+
+1. Initialize repository
+```
+git submodule init && git submodule update
+```
+
+2. Install ffmpeg
+```
+sudo apt install autoconf automake build-essential cmake libass-dev libfreetype6-dev libjpeg-dev libtheora-dev libtool libvorbis-dev libx264-dev pkg-config wget yasm zlib1g-dev
+wget https://www.ffmpeg.org/releases/ffmpeg-4.2.1.tar.xz
+tar -xf ffmpeg-4.2.1.tar.xz
+cd ffmpeg-4.2.1
+./configure --disable-static --enable-shared --disable-doc
+make
+sudo make install
+```
+
+3. Install virtual environment
+```
+pip install pipenv
+pipenv install
+```
+
+4. Install CUDA >=9.2
+
+5. Download `data`, `models` folders into `ConceptManipulation` directory.
+
+## Activate virtual environment
+```pipenv shell```
 
 
 If you think our work is useful, please consider citing use with
