@@ -1,0 +1,42 @@
+{
+    "model_name": "model3D_1",
+    "output_dir": "trained_models/pretrained",
+
+    "input_mode": "skvideo",
+
+    "data_folder": "/scr-ssd/ConceptManipulation/Data/videos/",
+
+    "json_data_train": "/scr-ssd/ConceptManipulation/Data/captions/something-something-v2-train.json",
+    "json_data_val": "/scr-ssd/ConceptManipulation/Data/captions/something-something-v2-validation.json",
+    "json_data_test": "/scr-ssd/ConceptManipulation/Data/captions/something-something-v2-test.json",
+
+    "json_file_labels": "/scr-ssd/ConceptManipulation/Data/captions/something-something-v2-labels.json",
+
+    "num_workers": 6,
+
+    "num_classes": 174,
+    "batch_size": 96,
+    "clip_size": 48,
+    
+    "nclips_train": 1,
+    "nclips_val": 1,
+
+    "upscale_factor_train": 1.0,
+    "upscale_factor_eval": 1.0,
+
+    "step_size_train": 1,
+    "step_size_val": 1,
+
+    "lr": 0.008,
+    "last_lr": 0.00001,
+    "momentum": 0.9,
+    "weight_decay": 0.00001,
+    "num_epochs": -1,
+    "print_freq": 100,
+
+    "conv_model": "models.model3D_1",
+    "input_spatial_size": 84,
+
+    "column_units": 512,
+    "save_features": false
+}
