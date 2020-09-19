@@ -31,18 +31,10 @@ make
 sudo make install
 ```
 
-3. Install virtual environment
-```
-pip install pipenv
-pipenv install
-```
+3. Install CUDA >=9.2
 
-4. Install CUDA >=9.2
+4. Download `data`, `models` folders into `ConceptManipulation` directory.
 
-5. Download `data`, `models` folders into `ConceptManipulation` directory.
-
-## Activate virtual environment
-```pipenv shell```
 
 ## In Progress...
 
