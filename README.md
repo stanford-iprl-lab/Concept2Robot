@@ -36,7 +36,7 @@ sudo make install
 4. Download `data`, `models` folders into `ConceptManipulation` directory.
 
 
-## In Progress...
+## In Progress
 
 If you think our work is useful, please consider citing use with
 ```
