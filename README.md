@@ -31,11 +31,6 @@ make
 sudo make install
 ```
 
-3. Compile bullet
-```
-cd external/bullet3.git; bash build_cmake_pybullet_double.sh
-```
-
 4. Download `data`, `models` folders into `ConceptManipulation` directory.
 
 
