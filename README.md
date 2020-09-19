@@ -31,9 +31,14 @@ make
 sudo make install
 ```
 
-3. Install CUDA >=9.2
+3. Compile bullet
+```
+cd external/bullet3.git; bash build_cmake_pybullet_double.sh
+```
 
-4. Download `data`, `models` folders into `ConceptManipulation` directory.
+4. Install CUDA >=9.2
+
+5. Download `data`, `models` folders into `ConceptManipulation` directory.
 
 
 ## In Progress
