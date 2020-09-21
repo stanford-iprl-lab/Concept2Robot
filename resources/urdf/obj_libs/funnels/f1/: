@@ -1,0 +1,80 @@
+<?xml version="0.0" ?>
+<robot name="bolt.urdf">
+  <link name="base">
+    <visual>
+      <origin rpy="0. 0.1 0" xyz="0 0 0.0"/>
+      <geometry>
+        <box size=".18 .2 0.02"/>
+      </geometry>
+      <material name="blue">
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0. 0.1 0" xyz="0 0 0.0"/>
+      <geometry>
+        <box size=".18 .2 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint1" type="fixed">
+    <origin rpy="0 0 0" xyz=".095 0.0 0.0"/>
+    <parent link="base"/>
+    <child link="top"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="top">
+    <visual>
+      <origin rpy="0 -0.1 0" xyz=".09 .01 0.00"/>
+      <geometry>
+        <box size=".18 .2 0.02"/>
+      </geometry>
+      <material name="blue">
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.1 0" xyz="0.09 0 0.0"/>
+      <geometry>
+        <box size=".18 .2 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <joint name="joint2" type="fixed">
+    <origin rpy="0 0 0" xyz=".095 0.2 0.0"/>
+    <parent link="base"/>
+    <child link="top"/>
+    <axis xyz="0 1 0"/>
+  </joint>
+  <link name="side">
+    <visual>
+      <origin rpy="0 -0.1 0" xyz=".09 .01 0.00"/>
+      <geometry>
+        <box size=".18 .4 0.02"/>
+      </geometry>
+      <material name="blue">
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 -0.1 0" xyz="0.09 0 0.0"/>
+      <geometry>
+        <box size=".18 .4 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <material name="panda_white">
+    <color rgba="1. 1. 1. 1."/>
+  </material>
+  <material name="red">
+    <color rgba="1.0 0. 0. 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0. 0. 1. 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0. 1. 0. 1.0"/>
+  </material>
+
+</robot>
+
+

@@ -1,0 +1,8 @@
+name: book
+base_marker: "/CreditCardWith4Markers"
+link_name_prefix: "rb"
+link_ids: {4: "0", 2: "1"}
+joints:
+- {rb1_id: 4, rb2_id: 2, type: REVOLUTE}
+meshes: {"rb0": "book/meshes/book_bottom.dae", "rb1": "book/meshes/book_top.dae"}
+mesh_poses: {"rb0": "<origin xyz='0.127528 -0.021424 -0.126922' rpy='-0.049208 -1.379315 -1.552577'/>", "rb1": "<origin xyz='0.112065 -0.028672 0.076906' rpy='1.674489 -0.030900 1.717519'/>"}

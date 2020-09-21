@@ -1,0 +1,58 @@
+<?xml version="0.0" ?>
+<robot name="bolt.urdf">
+  <link name="base">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.04"/>
+      <geometry>
+        <box size=".046 .046 0.08"/>
+      </geometry>
+      <material name="blue">
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.04"/>
+      <geometry>
+        <box size=".046 .046 0.08"/>
+      </geometry>
+    </collision>
+  </link>
+  <joint name="joint1" type="revolute">
+    <origin rpy="0 0 0" xyz="0 0 0.08"/>
+    <parent link="base"/>
+    <child link="top"/>
+    <axis xyz="0 0 1"/>
+    <limit effort="10" lower="-3.1415" upper="3.1415" velocity="2.1750"/>
+  </joint>
+  <link name="top">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.01"/>
+      <geometry>
+        <box size=".20 .04 0.02"/>
+      </geometry>
+      <material name="red">
+      </material>
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.01"/>
+      <geometry>
+        <box size=".20 .04 0.02"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <material name="panda_white">
+    <color rgba="1. 1. 1. 1."/>
+  </material>
+  <material name="red">
+    <color rgba="1.0 0. 0. 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0. 0. 1. 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0. 1. 0. 1.0"/>
+  </material>
+
+</robot>
+
+

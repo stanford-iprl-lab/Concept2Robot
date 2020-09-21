@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<robot name="book">
+  <link name ="rb0">
+    <visual>
+      <origin xyz='0.114733 -0.044798 -0.125005' rpy='0.235378 -1.472020 -1.942373'/>
+      <geometry>
+        <mesh filename="package://articulated_objects_db/data/objects/book/meshes/book_bottom.dae"  scale="1 1 1" />
+      </geometry>
+    </visual>
+  </link>
+  <joint name="j_0_1" type="revolute">
+    <parent link="rb0"/>
+    <child link="rb1"/>
+    <origin xyz="-0.0243083470999 0.0882301176908 -0.0226297474103" rpy="0 0 0 "/>
+    <axis xyz="-0.0154803942539 0.0328616666867 0.999340016339"/>
+    <limit effort="30" velocity="1.0" lower="-3.1416" upper="3.1416"/>
+  </joint>
+  <joint name="j_0_fixed" type="fixed">
+    <parent link="rb1"/>
+    <child link="rb1_marker"/>
+      <origin xyz="-0.047603888393 0.186860290786 -0.00745502591569" rpy="-1.5857036649 -0.0472023600393 -0.226381254476"/>
+    <limit effort="30" velocity="1.0" lower="-3.1416" upper="3.1416"/>
+  </joint>
+  <link name ="rb1">
+  </link>
+  <link name ="rb1_marker">
+    <visual>
+      <origin xyz='-0.033606 0.111992 -0.131134' rpy='-2.687362 -0.140623 -1.633955'/>
+      <geometry>
+        <mesh filename="package://articulated_objects_db/data/objects/book/meshes/book_top.dae"  scale="1 1 1" />
+      </geometry>
+    </visual>
+  </link>
+</robot>

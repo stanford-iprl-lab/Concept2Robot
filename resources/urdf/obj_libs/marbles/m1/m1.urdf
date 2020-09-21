@@ -1,0 +1,47 @@
+<?xml version="0.0" ?>
+<robot name="root">
+  <link name="base">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.001"/>
+      <inertia ixx="-4.46E-06" ixy="-4.55E-07" ixz="1.95E-06" iyy="-2.47E-06" iyz="8.51E-08" izz="2.17E-06"/>
+    </inertial>
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0.0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+      <material name="Red">
+      </material> 
+    </visual>
+    <collision>
+      <origin rpy="0 0 0" xyz="0 0 0.0"/>
+      <geometry>
+        <sphere radius="0.005"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <material name="panda_white">
+    <color rgba="1. 1. 1. 1."/>
+  </material>
+  <material name="red">
+    <color rgba="1.0 0. 0. 1.0"/>
+  </material>
+  <material name="blue">
+    <color rgba="0. 0. 1. 1.0"/>
+  </material>
+  <material name="green">
+    <color rgba="0. 1. 0. 1.0"/>
+  </material>
+  <material name="Yellow">
+    <color rgba="0.949 0.878 0.0392 1.0"/>
+  </material>
+  <material name="Blue">
+    <color rgba="0.12156 0.3804 0.6745 1.0"/>
+  </material>
+  <material name="Red">
+    <color rgba="0.9254901 0.243137 0.086274509 1.0"/>
+  </material>
+
+</robot>

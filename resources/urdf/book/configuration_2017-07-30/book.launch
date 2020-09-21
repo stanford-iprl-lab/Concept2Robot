@@ -1,0 +1,1 @@
+<launch><node name="first_tf" pkg="tf" type="static_transform_publisher" args="0 0 0 0 0 0 /CreditCardWith4Markers /rb0 200" /></launch>
