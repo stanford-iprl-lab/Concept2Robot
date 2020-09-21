@@ -15,9 +15,7 @@ DMP_DIR = os.path.join(BASE_DIR,'../deepTraj')
 sys.path.insert(0,DMP_DIR)
 from ddmp import DDMP  as DMP
 
-HOME_DIR = "/juno/u/lins2"
 sys.path.insert(0, "../simulation")
-sys.path.insert(0,os.path.join(HOME_DIR,'bullet3/build_cmake/examples/pybullet'))
 import pybullet
 
 import bullet_client as bc
