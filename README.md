@@ -33,9 +33,8 @@ sudo make install
 
 3. Create and Initialize Conda Environment
 ```
-conda create --name concept2robot python=3.6
-conda activate concept2robot
 conda env create -f environment.yml
+conda activate concept2robot
 ```
 
 4. Download `data`, `models` folders into `ConceptManipulation` directory.
