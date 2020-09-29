@@ -58,9 +58,6 @@ class Engine5(Engine):
         self.p.setTimeStep(1 / 30.0)
         self.p.setGravity(0,0,-9.81)
 
-        self.count = 0
-        self.fw1 = open("p1.txt","w")
-        self.fw2 = open("p2.txt","w")
 
     def init_obj(self):
         self.obj_scaling = 0.8
@@ -162,16 +159,8 @@ class Engine5(Engine):
           rr = R.from_quat(p1_ori)
           HTrans = np.zeros((4,4))
           HTrans[:3,:3] = rr.as_dcm()
-          #print("p1_ori",HTrans[:3,:3])
           p1_pos = self.p.getLinkState (self.obj_id, 0)[0]
           p2_pos = p1_pos - HTrans[:3,0] * jointInfo[0]
-          print("p1_pos",p1_pos)
-          print(p1_pos - HTrans[:3,0] * jointInfo[0])
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          self.fw1.writelines("%f %f %f\n" % (p1_pos[0],p1_pos[1],p1_pos[2]))
-          self.fw2.writelines("%f %f %f\n" % (p2_pos[0],p2_pos[1],p2_pos[2]))
           return True
         else:
           return False
