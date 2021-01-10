@@ -14,16 +14,9 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
 sys.path.append('./')
-
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env import Engine
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-
+from env import Engine
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 class Engine95(Engine):
     def __init__(self, worker_id, opti, p_id, taskId=5, maxSteps=15, n_dmps=3, cReward=True):
@@ -56,6 +49,16 @@ class Engine95(Engine):
                                       baseOrientation=self.box_orientation,
                                       globalScaling=self.box_scaling,useFixedBase=True)
 
+    def init_obj(self):
+        self.obj_file = os.path.join(self.resources_dir, "urdf/objmodels/nut.urdf")
+        self.obj_position = [0.4, -0.15, 0.34]
+        self.obj_scaling = 2
+        self.obj_orientation = self.p.getQuaternionFromEuler([math.pi / 2, -math.pi / 2, 0])
+        self.obj_id = self.p.loadURDF(fileName=self.obj_file, basePosition=self.obj_position,
+                                      baseOrientation=self.obj_orientation,
+                                      globalScaling=self.obj_scaling)  # ,physicsClientId=self.physical_id)
+        self.p.changeVisualShape(self.obj_id, -1, rgbaColor=[0.3, 0.3, 0.9, 1])
+
     def reset_obj(self):
         box_x = 0.48
         box_y = -0.05
@@ -70,7 +73,8 @@ class Engine95(Engine):
         self.obj_position = [obj_x + transl_obj[0],obj_y + transl_obj[1], 0.33]
         self.obj_orientation = self.p.getQuaternionFromEuler([math.pi/2, -math.pi/2, 0])
         self.p.resetBasePositionAndOrientation (self.obj_id, self.obj_position, self.obj_orientation)
- 
+
+
 
     def init_grasp(self):
         self.robot.gripperControl(0)

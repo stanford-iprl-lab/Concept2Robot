@@ -11,15 +11,11 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
+
 sys.path.append('./')
 
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env import Engine
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
+from env import Engine
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 
 class Engine98(Engine):
@@ -50,7 +46,7 @@ class Engine98(Engine):
         self.obj_position = [0.42, -0.08, 0.43]
         self.obj_scaling = 1.0
         self.obj_orientation = self.p.getQuaternionFromEuler([-math.pi/2, 0, 0])
-        self.obj_id = self.p.loadURDF(os.path.join(self.opti.urdf_root,"urdf/obj_libs/bottles/b3/b3.urdf"),basePosition=self.obj_position,baseOrientation=self.obj_orientation,globalScaling=self.obj_scaling)
+        self.obj_id = self.p.loadURDF(os.path.join(self.resources_dir,"urdf/obj_libs/bottles/b3/b3.urdf"),basePosition=self.obj_position,baseOrientation=self.obj_orientation,globalScaling=self.obj_scaling)
 
         self.p.changeVisualShape (self.obj_id, -1, rgbaColor=[0.,0.2,0.8,1])
 

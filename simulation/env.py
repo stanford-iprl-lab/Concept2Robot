@@ -77,9 +77,6 @@ class Engine:
           self.config = load_json_config("../classification/image/configs/config_resnet.json")
         elif self.classifier == 'tsm_video':
           self.config = load_json_config("../classification/video/configs/config_tsm_video.json")
-        elif self.classifier == 'trn_video':
-          print("printting trn video")
-          self.config = load_json_config("/juno/u/lins2/TRN-pytorch/config.json")   
         print("self.config",self.config)
 
         # setup device - CPU or GPU
@@ -88,15 +85,9 @@ class Engine:
         print("> Using device: {}".format(self.device.type))
         print("> Active GPU ids:{}".format(self.device_ids))
 
-
         self._wid = wid
         self.opti = opti
         self.p = p_id
-        self.class_id = opti.action_id
-        self.video_id = opti.video_id
-        self.test_id = opti.test_id
-        self.cut_frame_num = opti.cut_frame_num
-        self.give_reward_num = opti.give_reward_num
         self.init_rl ()
         self.taskId = taskId
         self.cReward = cReward
@@ -120,18 +111,15 @@ class Engine:
         self.p.setTimeStep(1 / 100.0)
         self.p.setGravity(0,0,-9.81)
 
-        if self.opti.video_reward:
-            self.eval = self.opti.load_video_pred
+        #if self.opti.video_reward:
+        #    self.eval = self.opti.load_video_pred
 
-        if self.opti.use_cycle:
-            self.cycle = self.opti.load_cycle
-
-        if self.opti.use_dmp:
-            self.dmp = DMP(opti,self.n_dmps) #self.opt.load_dmp
-            assert (self.opti.video_reward)
+        self.dmp = DMP(opti,self.n_dmps) #self.opt.load_dmp
+        assert (self.opti.video_reward)
 
         self.configs_dir = os.path.join(self.opti.project_dir, 'configs')
         self.resources_dir = os.path.join(self.opti.project_dir, 'resources')
+
         self.urdf_dir = os.path.join(self.resources_dir,'urdf')
         self.robot_recordings_dir = os.path.join(self.opti.project_dir, 'data', 'robot_recordings')
         #self.log_root = os.path.join(opti.project_root,'logs')
@@ -243,21 +231,74 @@ class Engine:
         model.eval()
         self.model = model
         self.prevDist = 0.0
-     
+
+    def getLinkInfo(self, object_id):
+        numJoint = self.p.getNumJoints(object_id)
+        LinkList = ['base']
+        for jointIndex in range(numJoint):
+            jointInfo = self.p.getJointInfo(object_id, jointIndex)
+            print("joiniNFO", jointInfo)
+            link_name = jointInfo[12]
+            if link_name not in LinkList:
+                LinkList.append(link_name)
+        return LinkList
+
+    def getNumLinks(self, object_id):
+        return len(self.getLinkInfo(object_id))
+
+    def getAABB(self, object_id):
+        numLinks = self.getNumLinks(object_id)
+        AABB_List = []
+        for link_id in range(-1, numLinks - 1):
+            AABB_List.append(self.p.getAABB(object_id, link_id))
+        AABB_array = np.array(AABB_List)
+        AABB_obj_min = np.min(AABB_array[:, 0, :], axis=0)
+        AABB_obj_max = np.max(AABB_array[:, 1, :], axis=0)
+        AABB_obj = np.array([AABB_obj_min, AABB_obj_max])
+        return AABB_obj
+
     def reset_obs_list(self):
         self.epoch_suc =  False
         self.epoch_done = False
         self.obs_list = []
 
     def init_table(self):
-        table_path = os.path.join(self.resources_dir,'urdf/table/table.urdf')
-        self.table_id = self.p.loadURDF(table_path, [0.42,0,0],[0,0,math.pi*0.32,1],globalScaling=0.6)#,physicsClientId=self.physical_id)
-        texture_path = os.path.join(self.resources_dir,'textures/table_textures/table_texture.jpg')
-        self.table_textid = self.p.loadTexture (texture_path)
-        self.p.changeVisualShape (self.table_id, -1, textureUniqueId=self.table_textid)
+        if 1:
+          table_path = os.path.join(self.resources_dir,'urdf/table/table.urdf')
+          self.table_id = self.p.loadURDF(table_path, [0.42,0,0],[0,0,math.pi*0.32,1],globalScaling=0.6)#,physicsClientId=self.physical_id)
+          texture_path = os.path.join(self.resources_dir,'textures/table_textures/table_texture.jpg')
+          self.table_textid = self.p.loadTexture (texture_path)
+          self.p.changeVisualShape (self.table_id, -1, textureUniqueId=self.table_textid)
+        #print(self.getAABB(self.table_id))
+        #print(self.p.getAABB(self.table_id))
+        #print(self.getNumLinks(self.table_id))
+        #input("raw")
 
-    def reset_table(self):
-        self.p.changeVisualShape (self.table_id, -1, textureUniqueId=self.table_textid)
+        else:
+          max_z = 0.289
+          min_z = 0.0
+          max_y = 0.4556
+          min_y = -max_y
+          max_x = 0.7264
+          min_x = 0.1136
+          self.table_height = max_z
+          self.table_width = max_y * 2.0
+          self.table_depth = max_x - min_x
+          self.table_v = self.p.createVisualShape(self.p.GEOM_BOX,
+                                                halfExtents=[self.table_depth / 2.0, self.table_width / 2.0,
+                                                             self.table_height / 2.0])
+          self.table_c = self.p.createCollisionShape(self.p.GEOM_BOX,
+                                                   halfExtents=[self.table_depth / 2.0, self.table_width / 2.0,
+                                                                self.table_height / 2.0])
+          mass = 0
+          self.table_id = self.p.createMultiBody(mass, baseCollisionShapeIndex=self.table_c,
+                                               baseVisualShapeIndex=self.table_v, basePosition=(self.table_depth / 2.0 + min_x, 0.0, self.table_height / 2.0))
+          self.table_color = [128 / 255.0, 128 / 255.0, 128 / 255.0, 1.0]
+          self.p.changeVisualShape(self.table_id, -1, rgbaColor=self.table_color)
+
+
+    #def reset_table(self):
+    #    self.p.changeVisualShape (self.table_id, -1, textureUniqueId=self.table_textid)
 
     def init_motion(self):
         # TODO: use json
@@ -437,6 +478,7 @@ class Engine:
         return start_id+len(pos_traj)
 
     def init_rl(self):
+        """
         self.target_pos = [0.3633281737186908, -0.23858468351424078, 0.670415682662147]
         # self.target_pos = [0.3633281737186908, -0.23858468351424078+0.1, 0.670415682662147-0.1]
         self.each_action_lim = self.opti.each_action_lim
@@ -447,7 +489,8 @@ class Engine:
         self.min_dis_lim = self.opti.end_distance
         self.axis_limit = [eval(self.opti.axis_limit_x),eval(self.opti.axis_limit_y),
                            eval(self.opti.axis_limit_z)]
-
+        """
+        pass
 
     def init_dmp(self):
         """
@@ -479,7 +522,6 @@ class Engine:
         self.seq_num = 0
         self.init_dmp()
         self.init_rl ()
-        self.reset_table ()
         self.reset_obj ()
         self.init_grasp ()
         self.reset_obs_list()

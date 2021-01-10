@@ -194,6 +194,15 @@ class Worker(object):
                     action_forces[:, 3:6] = (action_forces[:, 3:6]).clip(-self.params.rotation_max_action / np.pi * 50.0,
                                                      self.params.rotation_max_action / np.pi * 50.0)
 
+                    ### force term in action clip
+                    forces_temp = np.copy(forces_pred) * weights
+                    forces_temp[:, 3:6] = (forces_temp[:, 3:6]).clip( -self.params.rotation_max_action / np.pi * 50.0,
+                        self.params.rotation_max_action / np.pi * 50.0)
+                    forces_temp[:-1, :] = forces_temp[:-1, :] / weights[:-1,
+                                                                :] / 50.0  #### the last element of weight is zero.
+                    forces_temp = forces_temp.transpose().reshape((-1,))
+                    action_clip[self.params.a_dim:] = forces_temp
+
                     observation_next, reward, done, suc = self.env.step(action_goal, action_forces, None, reset_flag)
                 else:
                     observation_next, reward, done, suc = self.env.step(action_goal, None, None, reset_flag)
@@ -215,18 +224,27 @@ class Worker(object):
 
                 self.writer.add_scalar("train/reward", reward, ep_iter)
                 if not self.params.force_term:
-                    action_penalty = np.sum(np.abs(action_pred[:self.params.a_dim])) / float(
+                    action_penalty = np.sum(np.abs(action_clip[:self.params.a_dim])) / float(
                         self.params.a_dim) * self.params.action_penalty
                 else:
-                    action_penalty = np.sum(np.abs(action_pred[:self.params.a_dim])) / float(
+                    action_penalty = np.sum(np.abs(action_clip[:self.params.a_dim])) / float(
                         self.params.a_dim) * self.params.action_penalty + np.sum(
-                        np.abs(action_pred[self.params.a_dim:])) / float(
+                        np.abs(action_clip[self.params.a_dim:])) / float(
                         self.params.a_dim * self.params.traj_timesteps) * self.params.action_penalty * 0.1
 
                 reward = reward - action_penalty
 
                 print("Training", "success", suc, "taskid", self.TaskId, "ep_iter", ep_iter, " action", action_clip[:7], "action_pred", action_pred[:7],
                       "reward", reward, "suc", suc, "action_penalty", action_penalty)
+
+                self.writer.add_scalar("train_action_0/pred_action", action_pred[0], ep_iter)
+                self.writer.add_scalar("train_action_0/clip_action", action_clip[0], ep_iter)
+                self.writer.add_scalar("train_action_1/pred_action", action_pred[1], ep_iter)
+                self.writer.add_scalar("train_action_1/clip_action", action_clip[1], ep_iter)
+                self.writer.add_scalar("train_action_2/pred_action", action_pred[2], ep_iter)
+                self.writer.add_scalar("train_action_2/clip_action", action_clip[2], ep_iter)
+                self.writer.add_scalar("train_action_6/pred_action", action_pred[6], ep_iter)
+                self.writer.add_scalar("train_action_6/clip_action", action_clip[6], ep_iter)
 
                 observation_next = np.reshape(observation_next, (-1,))
 

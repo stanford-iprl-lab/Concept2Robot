@@ -164,7 +164,7 @@ class Engine118(Engine):
         #plt.imshow(img[2])
         #plt.figure(1)
         #plt.imshow(img[4])
-        print("dist",dist,np.sum(img[4] == self.obj_id))
+        #print("dist",dist,np.sum(img[4] == self.obj_id))
         #plt.show()
  
         if dist < 0.3 and np.sum(img[4] == self.obj_id) < 10:

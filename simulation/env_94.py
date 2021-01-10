@@ -15,15 +15,10 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
 sys.path.append('./')
 
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env import Engine
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
+from env import Engine
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 
 class Engine94(Engine):
@@ -48,6 +43,16 @@ class Engine94(Engine):
         self.orn_traj = np.load (os.path.join (self.configs_dir, 'init', 'orn.npy'))
         self.fix_orn = np.load (os.path.join (self.configs_dir, 'init', 'orn.npy'))
         self.pos = None
+
+    def init_obj(self):
+        self.obj_file = os.path.join(self.resources_dir, "urdf/objmodels/nut.urdf")
+        self.obj_position = [0.4, -0.15, 0.34]
+        self.obj_scaling = 2
+        self.obj_orientation = self.p.getQuaternionFromEuler([math.pi / 2, -math.pi / 2, 0])
+        self.obj_id = self.p.loadURDF(fileName=self.obj_file, basePosition=self.obj_position,
+                                      baseOrientation=self.obj_orientation,
+                                      globalScaling=self.obj_scaling)  # ,physicsClientId=self.physical_id)
+        self.p.changeVisualShape(self.obj_id, -1, rgbaColor=[0.3, 0.3, 0.9, 1])
 
     def reset_obj(self):
         obj_x = 0.35

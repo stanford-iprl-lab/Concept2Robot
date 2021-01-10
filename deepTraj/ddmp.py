@@ -32,14 +32,11 @@ class DDMP():
     if timesteps is not None:
         self.timesteps = timesteps
     else:
-        self.timesteps = self.opti.dmp_timesteps
+        self.timesteps = self.opti.traj_timesteps
     self.dt = 1./ (self.timesteps)
     self.ay = 12.
     self.by = self.ay / 4.
-    if opti is not None:
-        self.time_param = self.opti.dmp_time_param
-    else:
-        self.time_param = 't'
+    self.time_param = 't'
     if goal is not None:
       self.goal = goal
     else:

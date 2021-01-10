@@ -11,15 +11,10 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
 sys.path.append('./')
 
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env_98 import Engine98
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
+from env_98 import Engine98
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 class Engine99(Engine98):
     def __init__(self, worker_id, opti, p_id, taskId=5, maxSteps=15, n_dmps=3, cReward=True):

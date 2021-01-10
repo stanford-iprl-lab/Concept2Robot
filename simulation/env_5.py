@@ -11,17 +11,12 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
 sys.path.append('./')
 
 from scipy.spatial.transform import Rotation as R
 
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env import Engine
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
+from env import Engine
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 ################ Baseline Reward
 import signal
@@ -35,7 +30,6 @@ import torch.nn.functional as F
 
 np.set_printoptions(precision=4,suppress=True,linewidth=300)
 
-
 class Engine5(Engine):
     def __init__(self, worker_id, opti, p_id, taskId=5, maxSteps=15, n_dmps=3, cReward=True):
         super(Engine5,self).__init__(opti, wid=worker_id, p_id=p_id, maxSteps=maxSteps, taskId=taskId, n_dmps=n_dmps, cReward=cReward,robot_model=None)
@@ -44,7 +38,7 @@ class Engine5(Engine):
         self.robot.gripperMaxForce = 200.0
         self.robot.armMaxForce = 200.0
         self.robot.jd = [0.01] * 14
-        self.p.setPhysicsEngineParameter(useSplitImpulse=True,splitImpulsePenetrationThreshold=0.01)
+        self.p.setPhysicsEngineParameter(useSplitImpulse=True, splitImpulsePenetrationThreshold=0.01)
         self.p.setPhysicsEngineParameter(enableConeFriction=1)
         self.p.setPhysicsEngineParameter(contactBreakingThreshold=0.001)
         self.p.setPhysicsEngineParameter(allowedCcdPenetration=0.0)
@@ -52,7 +46,7 @@ class Engine5(Engine):
         self.p.setPhysicsEngineParameter(numSolverIterations=20)
         self.p.setPhysicsEngineParameter(numSubSteps=10)
 
-        self.p.setPhysicsEngineParameter(constraintSolverType=self.p.CONSTRAINT_SOLVER_LCP_DANTZIG,globalCFM=0.000001)
+        self.p.setPhysicsEngineParameter(constraintSolverType=self.p.CONSTRAINT_SOLVER_LCP_DANTZIG, globalCFM=0.000001)
         self.p.setPhysicsEngineParameter(enableFileCaching=0)
 
         self.p.setTimeStep(1 / 30.0)

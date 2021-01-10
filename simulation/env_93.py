@@ -12,15 +12,11 @@ import argparse
 import torch
 
 import sys
-sys.path.append('./Eval')
+
 sys.path.append('./')
 
-try:
-    from .env import Engine
-    from .utils import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
-except Exception:
-    from env import Engine
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
+from env import Engine
+from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
 
 #################################
 import signal

@@ -91,7 +91,7 @@ class Engine96(Engine):
         box_x = 0.48
         box_y = -0.1
         transl = np.random.uniform(-0.05,0.05,size=(2,))
-        self.box_position = [box_x + transl[0],box_y + transl[1], 0.25]
+        self.box_position = [box_x + transl[0],box_y + transl[1], 0.256]
         self.p.resetBasePositionAndOrientation (self.box_id, self.box_position, self.box_orientation)
         self.p.changeVisualShape (self.box_id, -1, rgbaColor=[1.0, 0.0, 0.0, 1])
 
