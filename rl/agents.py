@@ -11,6 +11,7 @@ import imageio
 import math
 from tensorboardX import SummaryWriter
 import datetime
+import copy
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DMP_DIR = os.path.join(BASE_DIR,'../deepDynamicMovementPrimitives')
@@ -31,9 +32,9 @@ from torchvision import transforms
 #####
 from actor import Actor
 from critic import Critic
-#from actor_coupling import Actor_C
-#from critic_coupling import Critic_C
-from master import Master
+from actor_feedback import Actor_F
+from critic_feedback import Critic_F
+from master import Master, Master_F
 
 transforms = transforms.Compose([
   transforms.ToPILImage(),
@@ -66,8 +67,33 @@ class Agent(object):
     self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), self.params.a_lr)
 
     self.master = Master(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_action, self.params).to(self.device)
-    self.master_optimizer = torch.optim.Adam(self.master.parameters(), self.params.traj_lr)
+    self.master_optimizer = torch.optim.Adam(self.master.parameters(), self.params.m_lr)
 
+    self.actor_feedback = Actor_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
+    self.actor_feedback_target = Actor_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
+    self.actor_feedback_optimizer = torch.optim.Adam(self.actor_feedback.parameters(), self.params.a_f_lr)
+
+    self.critic_feedback = Critic_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
+    self.critic_feedback_optimizer = torch.optim.Adam(self.critic_feedback.parameters(), self.params.c_f_lr)
+    self.critic_feedback_target = Critic_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
+
+    self.master_feedback = Master_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
+    self.master_feedback_optimizer = torch.optim.Adam(self.master_feedback.parameters(), self.params.c_m_lr)
+
+    for param, target_param in zip(self.critic_feedback.parameters(), self.critic_feedback_target.parameters()):
+      target_param.data.copy_(param.data)
+
+    for param, target_param in zip(self.actor_feedback.parameters(), self.actor_feedback_target.parameters()):
+      target_param.data.copy_(param.data)
+
+
+    self.memory_feedback = np.zeros((self.params.mem_feedback_capacity,
+                          self.params.a_dim * 1 + self.params.state_dim * self.params.stack_num  + 3 + self.params.task_dim),
+                         dtype=np.float32)
+
+    self.pointer_feedback = 0
+    self.step_feedback = 0
+    self.tau = 0.01
 
   def store_transition(self, init_pose, gt_traj, s, a, r, t, task_vec):
     transition = np.hstack((init_pose, gt_traj, s, a, [r, t], task_vec))
@@ -75,18 +101,34 @@ class Agent(object):
     self.memory[index, :] = transition
     self.pointer += 1
 
-  def store_transition_locally(self, init_pose, gt_traj, s, a, r, t, task_vec):
+  def store_transition_feedback(self, flag, s, a, r, t, task_vec):
+    transition = np.hstack(([flag], s, a, [r, t], task_vec))
+    index = self.pointer_feedback % self.params.mem_feedback_capacity
+    self.memory_feedback[index, :] = transition
+    self.pointer_feedback += 1
+
+  def store_transition_locally(self, init_pose, gt_traj, s, a, r, t, task_vec, save_top_dir):
     transition = np.hstack((init_pose, gt_traj, s, a, [r, t], task_vec))
-    #print("gt_traj",gt_traj)
-    self.pointer += 1
-    save_top_dir = "/juno/group/linshao/ConceptLearning"
-    save_sub_top_dir = os.path.join(save_top_dir,str(self.params.task_id))
+    save_sub_top_dir = save_top_dir
     if not os.path.exists(save_sub_top_dir):
       os.makedirs(save_sub_top_dir)
     save_file_top_dir = os.path.join(save_sub_top_dir,str(self.pointer))
     if not os.path.exists(save_file_top_dir):
       os.makedirs(save_file_top_dir)
     save_file_path = os.path.join(save_file_top_dir,'example.npy')
+    np.save(save_file_path, transition)
+    print(save_file_path)
+    self.pointer += 1
+
+  def store_transition_feedback_locally(self, timestep, flag, s, a, r, t, task_vec, save_top_dir):
+    transition = np.hstack((flag, s, a, [r, t], task_vec))
+    save_sub_top_dir = save_top_dir
+    if not os.path.exists(save_sub_top_dir):
+      os.makedirs(save_sub_top_dir)
+    save_file_top_dir = os.path.join(save_sub_top_dir,str(self.pointer))
+    if not os.path.exists(save_file_top_dir):
+      os.makedirs(save_file_top_dir)
+    save_file_path = os.path.join(save_file_top_dir,'example_'+str(timestep)+'_feedback.npy')
     np.save(save_file_path, transition)
     print(save_file_path)
 
@@ -108,17 +150,25 @@ class Agent(object):
     state = torch.FloatTensor(state).to(self.device)
     task_vec = torch.FloatTensor(task_vec.reshape((-1,self.params.task_dim))).to(self.device)
     init_action = self.master(state, task_vec).cpu().data.numpy().flatten()
-    #if self.params.use_cem:    
-    #  init_action = self.cem_choose_action(init_action, state, task_vec)
     return init_action
+
+  def choose_action_feedback(self, state, task_vec):
+    state = state.reshape((-1,120,160,3)).astype(np.uint8)
+    state_list = [transforms(s) for s in state]
+    state = torch.stack(state_list)
+    state = torch.FloatTensor(state).to(self.device)
+    task_vec = torch.FloatTensor(task_vec.reshape((-1,self.params.task_dim))).to(self.device)
+    assert state.size()[0] == 4 * task_vec.size()[0]
+    init_action = self.actor_feedback(state, task_vec).cpu().data.numpy().flatten()
+    return init_action
+
 
   def learn(self):
     self.step += 1
-
     if self.pointer > self.params.mem_capacity:
-      indices = np.random.choice(self.params.mem_capacity,size=self.params.batch_size)
+      indices = np.random.choice(self.params.mem_capacity, size=self.params.batch_size)
     else:
-      indices = np.random.choice(self.pointer,size=self.params.batch_size)
+      indices = np.random.choice(self.pointer, size=self.params.batch_size)
 
     bt = self.memory[indices, :]
 
@@ -184,6 +234,121 @@ class Agent(object):
       actor_loss.backward()
       self.actor_optimizer.step()
 
+  def lr_scheduler(self, optimizer, lr):
+    for param_group in optimizer.param_groups:
+      param_group['lr'] = lr
+    return optimizer
+
+  def learn_feedback(self):
+    self.step_feedback += 1
+
+    if self.pointer_feedback > self.params.mem_feedback_capacity:
+      indices_sample = np.random.choice(self.params.mem_feedback_capacity, size=self.params.batch_size * 2)
+    else:
+      indices_sample = np.random.choice(self.pointer_feedback, size=self.params.batch_size * 2)
+
+    indices = []
+    for indi in indices_sample:
+      if self.memory_feedback[indi, 0] > 0.5:
+        indices.append(indi)
+      if len(indices) == self.params.batch_size:
+        break
+    indices = np.array(indices)
+
+    bt = self.memory_feedback[indices, :]
+
+    index1 = 1
+    index2 = index1 + self.params.state_dim * self.params.stack_num
+    bs = bt[:, index1: index2]
+
+    index3 = index2 + self.params.a_dim
+    ba = bt[:, index2: index3]
+
+    index4 = index3 + 1
+    br = bt[:, index3: index4]
+
+    index5 = index4 + 1
+    bd = bt[:, index4: index5]
+
+    index6 = index5 + self.params.task_dim
+    btask = bt[:, index5: index6]
+
+    indices_next = [(indi + 1) % self.params.mem_feedback_capacity for indi in indices]
+    indices_next = np.array(indices_next)
+
+    bs_next = self.memory_feedback[indices_next, :][:, index1: index2]
+
+    state = bs.copy().reshape((-1, 120, 160, 3)).astype(np.uint8)
+    state_list = [transforms(s) for s in state]
+    state = torch.stack(state_list)
+    state = torch.FloatTensor(state).to(self.device)
+
+    action = ba.copy().reshape((-1, self.params.a_dim))
+    action = torch.FloatTensor(action).to(self.device)
+
+    state_next = bs_next.copy().reshape((-1, 120, 160, 3)).astype(np.uint8)
+    state_next_list = [transforms(s) for s in state_next]
+    state_next = torch.stack(state_next_list)
+    state_next = torch.FloatTensor(state_next).to(self.device)
+
+    task_vec = btask.copy().reshape((-1, self.params.task_dim))
+    task_vec = torch.FloatTensor(task_vec).to(self.device)
+
+    reward = br.copy().reshape((-1, 1))
+    reward = torch.FloatTensor(reward).to(self.device)
+
+    with torch.no_grad():
+       action_next = self.actor_feedback(state_next, task_vec)
+       q_next = self.critic_feedback(state_next, task_vec, action_next)
+       not_done = torch.FloatTensor(1.0 - bd.astype(np.float32)).to(self.device)
+       target_q = reward + not_done * self.params.discount * q_next
+
+    current_q = self.critic_feedback(state, task_vec, action)
+    critic_loss = F.mse_loss(current_q, target_q)
+    #print("current_q",current_q)
+    #print("target_q",target_q)
+    #print("not_done",not_done)
+    #print("discount", self.params.discount)
+    #print("critic_loss",critic_loss)
+
+    # optimize the critic_feedback
+    self.critic_feedback_optimizer.zero_grad()
+    critic_loss.backward()
+    self.critic_feedback_optimizer.step()
+
+    for _ in range(2):
+       current_q_ = self.critic_feedback(state, task_vec, action)
+       q_next_ = self.critic_feedback(state_next, task_vec, action_next)
+       critic_loss2 =  F.mse_loss(current_q_, target_q) + F.mse_loss(q_next_, q_next)
+
+       # optimize the critic_feedback
+       self.critic_feedback_optimizer.zero_grad()
+       critic_loss2.backward()
+       self.critic_feedback_optimizer.step()
+
+    self.params.writer.add_scalar('train_critic_feedback_loss/critic_loss', critic_loss, self.step_feedback)
+    self.params.writer.add_scalar('train_critic_feedback_reward/reward', reward.mean(), self.step_feedback)
+    self.params.writer.add_scalar('train_critic_feedback/current_Q', current_q.mean(), self.step_feedback)
+    self.params.writer.add_scalar('train_critic_feedback/reward_max', reward.max(), self.step_feedback)
+    self.params.writer.add_scalar('train_critic_feedback/current_Q_max', current_q.max(), self.step_feedback)
+
+    if 1:
+      print("updating actor_feedback")
+      lr_tmp = self.params.a_f_lr / (float(critic_loss2)*10 + 1.0)
+      self.actor_optimizer = self.lr_scheduler(self.actor_optimizer, lr_tmp)
+      actor_loss = -self.critic_feedback(state, task_vec, self.actor_feedback(state, task_vec)).mean()
+      self.params.writer.add_scalar('train_actor_feedback/actor_Q', -actor_loss, self.step_feedback)
+
+      # Optimize the actor
+      self.actor_feedback_optimizer.zero_grad()
+      actor_loss.backward()
+      self.actor_feedback_optimizer.step()
+
+    for param, target_param in zip(self.critic_feedback.parameters(), self.critic_feedback_target.parameters()):
+      target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+    for param, target_param in zip(self.actor_feedback.parameters(), self.actor_feedback_target.parameters()):
+      target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
   def cem_choose_action(self,init_action,s, task):
     # Initialize mean and stanford deviation
@@ -221,7 +386,14 @@ class Agent(object):
     Qs = self.critic(states, task_vecs, actions)
     return Qs.cpu().data.numpy().flatten()
 
-  def restore(self, step, restore_path=None):
+  def save_model_actor_critic(self, step):
+    save_path_critic = os.path.join(self.params.model_dir, 'critic_'+str(step)+'_model.pth.tar')
+    torch.save(self.critic.state_dict(), save_path_critic)
+
+    save_path_actor = os.path.join(self.params.model_dir, 'actor_'+str(step)+'_model.pth.tar')
+    torch.save(self.actor.state_dict(), save_path_actor)
+
+  def restore_actor_critic(self, step, restore_path=None):
     if restore_path is None:
       restore_path = self.params.model_dir
     print("restore from ",restore_path," at step ", step)
@@ -231,16 +403,23 @@ class Agent(object):
     save_path_actor = os.path.join(restore_path, 'actor_'+str(step)+'_model.pth.tar')
     self.actor.load_state_dict(torch.load(save_path_actor))
 
+  def save_model_feedback(self, step):
+    save_path_critic_f = os.path.join(self.params.model_dir, 'critic_feedback_'+str(step)+'_model.pth.tar')
+    torch.save(self.critic_feedback.state_dict(), save_path_critic_f)
 
-  def save_model(self, step):
-    save_path_critic = os.path.join(self.params.model_dir, 'critic_'+str(step)+'_model.pth.tar')
-    torch.save(self.critic.state_dict(), save_path_critic)
+    save_path_actor_f = os.path.join(self.params.model_dir, 'actor_feedback_'+str(step)+'_model.pth.tar')
+    torch.save(self.actor_feedback.state_dict(), save_path_actor_f)
 
-    save_path_actor = os.path.join(self.params.model_dir, 'actor_'+str(step)+'_model.pth.tar')
-    torch.save(self.actor.state_dict(), save_path_actor)
+  def restore_feedback(self, step, restore_path=None):
+    if restore_path is None:
+      restore_path = self.params.model_dir
+    print("restore from ",restore_path," at step ", step)
+    save_path_critic_f = os.path.join(restore_path, 'critic_feedback_'+str(step)+'_model.pth.tar')
+    self.critic_feedback.load_state_dict(torch.load(save_path_critic_f))
 
-    save_path_master = os.path.join(self.params.model_dir, 'master_'+str(step)+'_model.pth.tar')
-    torch.save(self.master.state_dict(), save_path_master)
+    save_path_actor_f = os.path.join(restore_path, 'actor_feedback_'+str(step)+'_model.pth.tar')
+    self.actor_feedback.load_state_dict(torch.load(save_path_actor_f))
+
 
   def save_model_master(self, step):
     save_path_master = os.path.join(self.params.model_dir, 'master_'+str(step)+'_model.pth.tar')
@@ -253,8 +432,18 @@ class Agent(object):
     save_path_master = os.path.join(restore_path, 'master_'+str(step)+'_model.pth.tar')
     self.master.load_state_dict(torch.load(save_path_master))
 
+  def save_model_master_feedback(self, step):
+    save_path_master_feedback = os.path.join(self.params.model_dir, 'master_feedback_'+str(step)+'_model.pth.tar')
+    torch.save(self.master_feedback.state_dict(), save_path_master_feedback)
 
-  def imitate_learn(self,imitate_memory):
+  def restore_master_feedback(self, step, restore_path=None):
+    if restore_path is None:
+      restore_path = self.params.model_dir
+    print("restore from ",restore_path," at step ", step)
+    save_path_master_feedback = os.path.join(restore_path, 'master_feedback_'+str(step)+'_model.pth.tar')
+    self.master_feedback.load_state_dict(torch.load(save_path_master_feedback))
+
+  def imitate_learn(self, imitate_memory):
     bt = imitate_memory
 
     index1 = self.params.a_dim
@@ -286,465 +475,131 @@ class Agent(object):
 
     task_vec = btask.copy().reshape((-1,self.params.task_dim))
     task_vec = torch.FloatTensor(task_vec).to(self.device)
-    
+
     for ik in range(1):
       self.imitate_step += 1
       offset = 0
       pred_action = self.master(state, task_vec)
-       
-      gt_action_label = torch.FloatTensor(ba).to(self.device) 
-      imitate_loss = F.mse_loss(gt_action_label[:,:7], pred_action[:,:7]) + 0.01 * F.mse_loss(gt_action_label[:,7:], pred_action[:,7:])#imitate_goal_loss + imitate_force_loss
+
+
+      gt_action_label = torch.FloatTensor(ba).to(self.device)
+
+      imitate_goal_loss = F.mse_loss(gt_action_label[:,:self.params.a_dim], pred_action[:,:self.params.a_dim])
+
+      if 0:#not self.params.force_term:
+        imitate_loss = imitate_goal_loss
+      else:
+        #### Important !! to cchange
+        imitate_force_loss = F.mse_loss(torch.zeros_like(gt_action_label[:, self.params.a_dim:]).to(self.device), pred_action[:, self.params.a_dim:])
+        imitate_loss = imitate_goal_loss + 0.01 * imitate_force_loss
+
       self.master_optimizer.zero_grad()
       imitate_loss.backward()
       self.master_optimizer.step()
 
       gt_force = gt_action_label[:,7:].reshape((-1,7,49))
       pred_force = pred_action[:,7:].reshape((-1,7,49))
-      self.params.writer.add_scalar('train_imitate/imitate_loss',imitate_loss, self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_0',pred_action[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_1',pred_action[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_2',pred_action[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_3',pred_action[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_4',pred_action[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_5',pred_action[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_6',pred_action[:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_force',pred_action[:,7:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_0',gt_action_label[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_1',gt_action_label[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_2',gt_action_label[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_3',gt_action_label[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_4',gt_action_label[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_5',gt_action_label[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_6',gt_action_label[:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_0',gt_force[:,0,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_1',gt_force[:,1,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_2',gt_force[:,2,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_3',gt_force[:,3,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_4',gt_force[:,4,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_5',gt_force[:,5,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_0',pred_force[:,0,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_1',pred_force[:,1,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_2',pred_force[:,2,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_3',pred_force[:,3,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_4',pred_force[:,4,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_5',pred_force[:,5,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_0',(gt_action_label[:,0]-pred_action[:,0]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_1',(gt_action_label[:,1]-pred_action[:,1]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_2',(gt_action_label[:,2]-pred_action[:,2]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_3',(gt_action_label[:,3]-pred_action[:,3]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_4',(gt_action_label[:,4]-pred_action[:,4]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_5',(gt_action_label[:,5]-pred_action[:,5]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_6',(gt_action_label[:,6]-pred_action[:,6]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_force',(gt_action_label[:,7:]-pred_action[:,7:]).reshape((-1,49,7))[:,:,0].mean(),self.imitate_step)
- 
-
-  def imitate_learn_v2(self,imitate_memory):
-    bt = imitate_memory
-
-    index1 = self.params.a_dim
-    b_traj_start = bt[:, : index1]
-
-    index2 = index1 + self.params.traj_timesteps * self.params.a_dim
-    b_gt_traj = bt[:, index1 : index2]
-
-    index3 = index2 + self.params.state_dim
-    bs = bt[:, index2: index3]
-
-    index4 = index3 + self.params.a_dim * self.params.traj_timesteps + self.params.a_dim
-    ba = bt[:, index3: index4]
-
-    index5 = index4 + 1
-    #br = bt[:, index4: index5]
-
-    index6 = index5 + 1
-    #bd = bt[:, index5: index6]
-
-    index7 = index6 + self.params.task_dim
-    btask = bt[:, index6: index7]
-
-
-    state = bs.copy().reshape((-1,120,160,3)).astype(np.uint8)
-    state_list = [transforms(s) for s in state]
-    state = torch.stack(state_list)
-    state = torch.FloatTensor(state).to(self.device)
-
-    gt_action_label = torch.FloatTensor(ba).to(self.device) 
-    task_vec = btask.copy().reshape((-1,self.params.task_dim))
-    task_vec = torch.FloatTensor(task_vec).to(self.device)
-    
-    real_traj = b_gt_traj.reshape((self.params.batch_size,self.params.traj_timesteps,self.params.a_dim)) 
-    #print(real_traj.shape)
-    real_traj_goal = torch.FloatTensor(real_traj[:,-1] - real_traj[:,0]).to(self.device) 
-
-    for ik in range(1):
-      self.imitate_step += 1
-      offset = 0
-      pred_action = self.master(state, task_vec)
-      if 1:
-        master_action = self.master(state, task_vec).cpu().detach().numpy()
-        gt_goal_list = []
-        gt_force_list = []
-        gt_dmp_goal_list = []
-
-        for bi in range(self.params.batch_size):
-          f_7 = np.zeros((self.params.traj_timesteps,7))
-          f_a_3 = ba[bi,7:].reshape((self.params.a_dim,self.params.traj_timesteps)).transpose() * 50.0
-          weights = np.linspace(1,0,self.params.traj_timesteps).reshape((self.params.traj_timesteps,1))
-          f_7[:,:7] = f_a_3 * weights
-          f_7[:,3:6] = (f_7[:,3:6]).clip(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-          action_7 = np.zeros((7,))
-          action_7 = ba[bi,:7].clip(-0.5,0.5)
-          action_7[3:6] = (action_7[3:6] * np.pi * 2.0).clip(-self.params.rotation_max_action, self.params.rotation_max_action)
-          goal_gt_action = action_7 + b_traj_start[0]
-          dmp_gt_action = DMP(None,n_dmps=self.params.a_dim,goal=goal_gt_action,start=b_traj_start[0],force=f_7,timesteps=self.params.traj_timesteps)
-          traj_gt_action = dmp_gt_action.rollout()[0] # (49,7)
-          #print("start",np.array((traj_gt_action[-1]-traj_gt_action[0])),"goal",action_7) 
-          dmp_goal_gt_action = np.array((traj_gt_action[-1]-traj_gt_action[0]))
-          gt_dmp_goal_list.append(dmp_goal_gt_action)
-
-        gt_dmp_goal_array = np.array(gt_dmp_goal_list)
-        gt_goal_array = np.array(gt_goal_list)
-        gt_force_array = np.array(gt_force_list)
-        gt_goal_force = np.hstack([gt_goal_array, gt_force_array])
-        gt_dmp_goal_label = torch.FloatTensor(gt_dmp_goal_array).to(self.device)
-        gt_goal_label = torch.FloatTensor(gt_goal_array).to(self.device)
-        gt_force_label = torch.FloatTensor(gt_force_array).to(self.device)
-      imitate_loss = F.mse_loss(real_traj_goal, pred_action[:,:7]) + F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]) + 0.01 * F.mse_loss(torch.zeros_like(gt_action_label[:,7:]), pred_action[:,7:])#imitate_goal_loss + imitate_force_loss
- 
-      self.master_optimizer.zero_grad()
-      imitate_loss.backward()
-      self.master_optimizer.step()
-
-      #print("imitate_loss", imitate_loss, " imitate_step", self.imitate_step)
-      #print((gt_action_label[:,7:]-pred_action[:,7:]).size())
-      gt_force = gt_action_label[:,7:].reshape((-1,7,49))
-      pred_force = pred_action[:,7:].reshape((-1,7,49))
-      self.params.writer.add_scalar('train_imitate/imitate_loss',imitate_loss, self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_0',pred_action[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_1',pred_action[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_2',pred_action[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_3',pred_action[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_4',pred_action[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_5',pred_action[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_6',pred_action[:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_action_force',pred_action[:,7:].mean(),self.imitate_step)
-
-      self.params.writer.add_scalar('train_imitate/real_goal_0',real_traj_goal[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_1',real_traj_goal[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_2',real_traj_goal[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_3',real_traj_goal[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_4',real_traj_goal[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_5',real_traj_goal[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/real_goal_6',real_traj_goal[:,6].mean(),self.imitate_step)
- 
-      self.params.writer.add_scalar('train_imitate/gt_action_0',gt_action_label[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_1',gt_action_label[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_2',gt_action_label[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_3',gt_action_label[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_4',gt_action_label[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_5',gt_action_label[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_action_6',gt_action_label[:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_0',gt_force[:,0,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_1',gt_force[:,1,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_2',gt_force[:,2,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_3',gt_force[:,3,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_4',gt_force[:,4,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/gt_force_5',gt_force[:,5,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_0',pred_force[:,0,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_1',pred_force[:,1,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_2',pred_force[:,2,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_3',pred_force[:,3,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_4',pred_force[:,4,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_force_5',pred_force[:,5,:].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_0',(gt_action_label[:,0]-pred_action[:,0]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_1',(gt_action_label[:,1]-pred_action[:,1]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_2',(gt_action_label[:,2]-pred_action[:,2]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_3',(gt_action_label[:,3]-pred_action[:,3]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_4',(gt_action_label[:,4]-pred_action[:,4]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_5',(gt_action_label[:,5]-pred_action[:,5]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_6',(gt_action_label[:,6]-pred_action[:,6]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_imitate/pred_error_action_force',(gt_action_label[:,7:]-pred_action[:,7:]).reshape((-1,49,7))[:,:,0].mean(),self.imitate_step)
-
-
- 
-  def imitate_learn_v3(self,imitate_memory):
-    bt = imitate_memory
-
-    index1 = self.params.a_dim
-    b_traj_start = bt[:, : index1]
-
-    index2 = index1 + self.params.traj_timesteps * self.params.a_dim
-    b_gt_traj = bt[:, index1 : index2]
-
-    index3 = index2 + self.params.state_dim
-    bs = bt[:, index2: index3]
-
-    index4 = index3 + self.params.a_dim * self.params.traj_timesteps + self.params.a_dim
-    ba = bt[:, index3: index4]
-
-    index5 = index4 + 1
-    #br = bt[:, index4: index5]
-
-    index6 = index5 + 1
-
-    index7 = index6 + self.params.task_dim
-    btask = bt[:, index6: index7]
-    state = bs.copy().reshape((-1,120,160,3)).astype(np.uint8)
-    state_list = [transforms(s) for s in state]
-    state = torch.stack(state_list)
-    state = torch.FloatTensor(state).to(self.device)
-
-    gt_action_label = torch.FloatTensor(ba).to(self.device) 
-    task_vec = btask.copy().reshape((-1,self.params.task_dim))
-    task_vec = torch.FloatTensor(task_vec).to(self.device)
-
-    #print("self.params.batch_size",self.params.batch_size)
-    real_traj = b_gt_traj.reshape((self.params.batch_size,self.params.traj_timesteps,self.params.a_dim))
-    #print(real_traj.shape)
-    real_traj_goal_array = real_traj[:,-1] - real_traj[:,0]
-    if self.params.rotation_max_action < 1e-6:
-      real_traj_goal_array[:,3:6] = 0.0   
-    real_traj_goal = torch.FloatTensor(real_traj_goal_array).to(self.device)
-
-    for ik in range(1):
-      self.imitate_step += 1
-      offset = 0
-      pred_action = self.master(state, task_vec)
-      pred_force = pred_action[:,7:].reshape((self.params.batch_size,self.params.a_dim,self.params.traj_timesteps)).transpose(1,2)*50.0
-      weights_force = np.linspace(1,0,self.params.traj_timesteps).reshape((self.params.traj_timesteps,1))
-      weights_force = np.expand_dims(weights_force,axis=0)
-      pred_force = pred_force * torch.FloatTensor(weights_force).to(self.device) ### (bn, 49, 7)
-      pred_force[:,:,3:6].clamp(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-
-      if 1:
-        master_action = self.master(state, task_vec).cpu().detach().numpy()
-        gt_goal_list = []
-        gt_force_list = []
-        gt_dmp_goal_list = []
-        traj_error = 0
-        for bi in range(self.params.batch_size):
-          f_7 = np.zeros((self.params.traj_timesteps,7))
-          f_a_3 = ba[bi,7:].reshape((self.params.a_dim,self.params.traj_timesteps)).transpose() * 50.0
-          weights = np.linspace(1,0,self.params.traj_timesteps).reshape((self.params.traj_timesteps,1))
-          f_7[:,:7] = f_a_3 * weights
-          f_7[:,3:6] = (f_7[:,3:6]).clip(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-          action_7 = np.zeros((7,))
-          action_7 = ba[bi,:7].clip(-0.5,0.5)
-          action_7[3:6] = (action_7[3:6] * np.pi * 2.0).clip(-self.params.rotation_max_action, self.params.rotation_max_action)
-          goal_gt_action = action_7 + b_traj_start[0]
-          dmp_gt_action = DMP(None,n_dmps=self.params.a_dim,goal=goal_gt_action,start=b_traj_start[0],force=f_7,timesteps=self.params.traj_timesteps)
-          traj_gt_action = dmp_gt_action.rollout()[0] # (49,7)
-          dmp_goal_gt_action = np.array((traj_gt_action[-1]-traj_gt_action[0]))
-          if self.params.rotation_max_action < 1e-6:
-            dmp_goal_gt_action[3:6] = 0.0
-          gt_dmp_goal_list.append(dmp_goal_gt_action)
-          
-          dmp_force_label = DMP(None,n_dmps=self.params.a_dim,goal=real_traj[bi][-1],start=real_traj[bi][0],force=None,timesteps=self.params.traj_timesteps)
-          force_label = dmp_force_label.imitate_path(real_traj[bi]) #(shape, (49,7))
-          force_label[:,3:6].clip(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-          gt_force_list.append(force_label)
-
-        gt_dmp_goal_array = np.array(gt_dmp_goal_list)
-        gt_goal_array = np.array(gt_goal_list)
-        gt_dmp_goal_array[:,2] = 0.5 * gt_dmp_goal_array[:,2] + 0.5 * real_traj_goal_array[:,2]
-        gt_force_array = np.array(gt_force_list)
-
-        gt_dmp_goal_label = torch.FloatTensor(gt_dmp_goal_array).to(self.device)
-        gt_goal_label = torch.FloatTensor(gt_goal_array).to(self.device)
-        gt_force_label = torch.FloatTensor(gt_force_array).to(self.device) #gt_force_label torch.Size([20, 49, 7])
- 
-      vio_loss_count = ((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label) > torch.zeros_like(pred_action[:,:7])).sum()
-      vio_loss = torch.max( (pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label),torch.zeros_like(pred_action[:,:7])).sum() 
-      imitate_loss = F.mse_loss(real_traj_goal, pred_action[:,:7]) * 0.1 + F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]) + 0.01 * F.mse_loss(torch.zeros_like(gt_force_label), pred_force) #+ torch.max((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label), torch.zeros_like(pred_action[:,:7])).sum() * 100.0
-      #imitate_loss = F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]) + 0.01 * F.mse_loss(torch.zeros_like(gt_force_label), pred_force) #+ torch.max((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label), torch.zeros_like(pred_action[:,:7])).sum() * 100.0
- 
-      self.master_optimizer.zero_grad()
-      imitate_loss.backward()
-      self.master_optimizer.step()
-
-      pred_force_in_action = pred_action[:,7:].reshape((self.params.batch_size,self.params.a_dim,self.params.traj_timesteps)).transpose(1,2) # (bn, 49, 7)
-      self.params.writer.add_scalar('train_imitate_loss/vio_loss_count',vio_loss_count, self.imitate_step)
       self.params.writer.add_scalar('train_imitate_loss/imitate_loss',imitate_loss, self.imitate_step)
-      self.params.writer.add_scalar('train_imitate_loss/imitate_loss1',F.mse_loss(real_traj_goal, pred_action[:,:7]), self.imitate_step)
-      self.params.writer.add_scalar('train_imitate_loss/imitate_loss2',F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]), self.imitate_step)
-      self.params.writer.add_scalar('train_imitate_loss/imitate_loss3',0.001 * F.mse_loss(gt_force_label, pred_force), self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_loss/imitate_goal_loss', imitate_goal_loss, self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_loss/imitate_force_loss', imitate_force_loss, self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_0',pred_action[:,0].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_1',pred_action[:,1].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_2',pred_action[:,2].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_3',pred_action[:,3].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_4',pred_action[:,4].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_5',pred_action[:,5].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_6',pred_action[:,6].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_force',pred_action[:,7:].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_0',gt_action_label[:,0].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_1',gt_action_label[:,1].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_2',gt_action_label[:,2].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_3',gt_action_label[:,3].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_4',gt_action_label[:,4].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_5',gt_action_label[:,5].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_6',gt_action_label[:,6].mean(),self.imitate_step)
 
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_0',pred_action[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_1',pred_action[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_2',pred_action[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_3',pred_action[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_4',pred_action[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_5',pred_action[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_6',pred_action[:,6].mean(),self.imitate_step)
-
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_0',(pred_force_in_action[:,:,0]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_1',(pred_force_in_action[:,:,1]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_2',(pred_force_in_action[:,:,2]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_3',(pred_force_in_action[:,:,3]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_4',(pred_force_in_action[:,:,4]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_5',(pred_force_in_action[:,:,5]).mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_force_in_action_6',(pred_force_in_action[:,:,6]).mean(),self.imitate_step)
-
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_0_std',pred_action[:,0].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_1_std',pred_action[:,1].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_2_std',pred_action[:,2].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_3_std',pred_action[:,3].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_4_std',pred_action[:,4].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_5_std',pred_action[:,5].std(),self.imitate_step)
-      self.params.writer.add_scalar('train_pred_raw_action/pred_action_6_std',pred_action[:,6].std(),self.imitate_step)
- 
-
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_0',gt_dmp_goal_array[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_1',gt_dmp_goal_array[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_2',gt_dmp_goal_array[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_3',gt_dmp_goal_array[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_4',gt_dmp_goal_array[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_5',gt_dmp_goal_array[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_dmp_action_6',gt_dmp_goal_array[:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_0',real_traj_goal[:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_1',real_traj_goal[:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_2',real_traj_goal[:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_3',real_traj_goal[:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_4',real_traj_goal[:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_5',real_traj_goal[:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_goal/gt_real_action_6',real_traj_goal[:,6].mean(),self.imitate_step)
+      if 1:
+        self.params.writer.add_scalar('train_imitate_force_0/gt',gt_force[:,0,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_1/gt',gt_force[:,1,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_2/gt',gt_force[:,2,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_3/gt',gt_force[:,3,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_4/gt',gt_force[:,4,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_5/gt',gt_force[:,5,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_6/gt',gt_force[:,6,:].mean(), self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_0/pred',pred_force[:,0,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_1/pred',pred_force[:,1,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_2/pred',pred_force[:,2,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_3/pred',pred_force[:,3,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_4/pred',pred_force[:,4,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_5/pred',pred_force[:,5,:].mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_6/pred',pred_force[:,6,:].mean(), self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_0/pred_error_action_0',(gt_action_label[:,0]-pred_action[:,0]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_1/pred_error_action_1',(gt_action_label[:,1]-pred_action[:,1]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_2/pred_error_action_2',(gt_action_label[:,2]-pred_action[:,2]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_3/pred_error_action_3',(gt_action_label[:,3]-pred_action[:,3]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_4/pred_error_action_4',(gt_action_label[:,4]-pred_action[:,4]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_5/pred_error_action_5',(gt_action_label[:,5]-pred_action[:,5]).mean(),self.imitate_step)
+        self.params.writer.add_scalar('train_imitate_force_6/pred_error_action_6',(gt_action_label[:,6]-pred_action[:,6]).mean(),self.imitate_step)
 
 
-      self.params.writer.add_scalar('train_force/real_force_0',gt_force_array[:,:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_1',gt_force_array[:,:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_2',gt_force_array[:,:,2].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_3',gt_force_array[:,:,3].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_4',gt_force_array[:,:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_5',gt_force_array[:,:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/real_force_6',gt_force_array[:,:,6].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/pred_force_0',pred_force[:,:,0].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/pred_force_1',pred_force[:,:,1].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/pred_force_4',pred_force[:,:,4].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/pred_force_5',pred_force[:,:,5].mean(),self.imitate_step)
-      self.params.writer.add_scalar('train_force/pred_force_6',pred_force[:,:,6].mean(),self.imitate_step)
-
-
- 
-  def imitate_learn_v3_evaluation(self,imitate_memory):
+  def imitate_learn_feedback(self, imitate_memory):
     bt = imitate_memory
 
-    index1 = self.params.a_dim
-    b_traj_start = bt[:, : index1]
+    index1 = 1
+    index2 = index1 + self.params.state_dim * self.params.stack_num
+    bs = bt[:, index1: index2]
 
-    index2 = index1 + self.params.traj_timesteps * self.params.a_dim
-    b_gt_traj = bt[:, index1 : index2]
+    index3 = index2 + self.params.a_dim
+    ba = bt[:, index2: index3]
 
-    index3 = index2 + self.params.state_dim
-    bs = bt[:, index2: index3]
-
-    index4 = index3 + self.params.a_dim * self.params.traj_timesteps + self.params.a_dim
-    ba = bt[:, index3: index4]
+    index4 = index3 + 1
+    br = bt[:, index3: index4]
 
     index5 = index4 + 1
+    bd = bt[:, index4: index5]
 
-    index6 = index5 + 1
+    index6 = index5 + self.params.task_dim
+    btask = bt[:, index5: index6]
 
-    index7 = index6 + self.params.task_dim
-    btask = bt[:, index6: index7]
-    state = bs.copy().reshape((-1,120,160,3)).astype(np.uint8)
+    state = bs.copy().reshape((-1, 120, 160, 3)).astype(np.uint8)
     state_list = [transforms(s) for s in state]
     state = torch.stack(state_list)
     state = torch.FloatTensor(state).to(self.device)
 
-    gt_action_label = torch.FloatTensor(ba).to(self.device) 
-    task_vec = btask.copy().reshape((-1,self.params.task_dim))
+    gt_feedback = ba.copy().reshape((-1, self.params.a_dim))
+    gt_feedback = torch.FloatTensor(gt_feedback).to(self.device)
+
+    task_vec = btask.copy().reshape((-1, self.params.task_dim))
     task_vec = torch.FloatTensor(task_vec).to(self.device)
 
-    #print("self.params.batch_size",self.params.batch_size)
-    real_traj = b_gt_traj.reshape((self.params.batch_size,self.params.traj_timesteps,self.params.a_dim))
-    #print(real_traj.shape)
-    real_traj_goal_array = real_traj[:,-1] - real_traj[:,0]
-    if self.params.rotation_max_action < 1e-6:
-      real_traj_goal_array[:,3:6] = 0.0   
-    real_traj_goal = torch.FloatTensor(real_traj_goal_array).to(self.device)
-
-    self.imitate_step_eval = self.imitate_step
+    reward = br.copy().reshape((-1, 1))
+    reward = torch.FloatTensor(reward).to(self.device)
 
     for ik in range(1):
-      self.imitate_step_eval += 1
+      self.imitate_step += 1
       offset = 0
-      pred_action = self.master(state, task_vec)
-      pred_force = pred_action[:,7:].reshape((self.params.batch_size,self.params.a_dim,self.params.traj_timesteps)).transpose(1,2)*50.0
-      weights_force = np.linspace(1,0,self.params.traj_timesteps).reshape((self.params.traj_timesteps,1))
-      weights_force = np.expand_dims(weights_force,axis=0)
-      pred_force = pred_force * torch.FloatTensor(weights_force).to(self.device) ### (bn, 49, 7)
-      pred_force[:,:,3:6].clamp(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
+      pred_feedback = self.master_feedback(state, task_vec)
+      print("pred_feedback", pred_feedback.size())
+      print("gt_feedback", gt_feedback.size())
 
-      if 1:
-        master_action = self.master(state, task_vec).cpu().detach().numpy()
-        gt_goal_list = []
-        gt_force_list = []
-        gt_dmp_goal_list = []
-        traj_error = 0
-        for bi in range(self.params.batch_size):
-          f_7 = np.zeros((self.params.traj_timesteps,7))
-          f_a_3 = ba[bi,7:].reshape((self.params.a_dim,self.params.traj_timesteps)).transpose() * 50.0
-          weights = np.linspace(1,0,self.params.traj_timesteps).reshape((self.params.traj_timesteps,1))
-          f_7[:,:7] = f_a_3 * weights
-          f_7[:,3:6] = (f_7[:,3:6]).clip(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-          action_7 = np.zeros((7,))
-          action_7 = ba[bi,:7].clip(-0.5,0.5)
-          action_7[3:6] = (action_7[3:6] * np.pi * 2.0).clip(-self.params.rotation_max_action, self.params.rotation_max_action)
-          goal_gt_action = action_7 + b_traj_start[0]
-          dmp_gt_action = DMP(None,n_dmps=self.params.a_dim,goal=goal_gt_action,start=b_traj_start[0],force=f_7,timesteps=self.params.traj_timesteps)
-          traj_gt_action = dmp_gt_action.rollout()[0] # (49,7)
-          dmp_goal_gt_action = np.array((traj_gt_action[-1]-traj_gt_action[0]))
-          if self.params.rotation_max_action < 1e-6:
-            dmp_goal_gt_action[3:6] = 0.0
-          gt_dmp_goal_list.append(dmp_goal_gt_action)
-          
-          dmp_force_label = DMP(None,n_dmps=self.params.a_dim,goal=real_traj[bi][-1],start=real_traj[bi][0],force=None,timesteps=self.params.traj_timesteps)
-          force_label = dmp_force_label.imitate_path(real_traj[bi]) #(shape, (49,7))
-          force_label[:,3:6].clip(-self.params.rotation_max_action/np.pi*50.0, self.params.rotation_max_action/np.pi*50.0)
-          gt_force_list.append(force_label)
+      imitate_loss = F.mse_loss(gt_feedback, pred_feedback)
 
-        gt_dmp_goal_array = np.array(gt_dmp_goal_list)
-        gt_dmp_goal_array[:,2] = 0.5 * gt_dmp_goal_array[:,2] + 0.5 * real_traj_goal_array[:,2]
-        gt_goal_array = np.array(gt_goal_list)
-        gt_force_array = np.array(gt_force_list)
+      self.master_feedback_optimizer.zero_grad()
+      imitate_loss.backward()
+      self.master_feedback_optimizer.step()
 
-        gt_dmp_goal_label = torch.FloatTensor(gt_dmp_goal_array).to(self.device)
-        gt_goal_label = torch.FloatTensor(gt_goal_array).to(self.device)
-        gt_force_label = torch.FloatTensor(gt_force_array).to(self.device) #gt_force_label torch.Size([20, 49, 7])
- 
-      vio_loss_count = ((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label) > torch.zeros_like(pred_action[:,:7])).sum()
-      vio_loss = torch.max( (pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label),torch.zeros_like(pred_action[:,:7])).sum() 
-      imitate_loss = F.mse_loss(real_traj_goal, pred_action[:,:7]) * 0.1 + F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]) + 0.01 * F.mse_loss(torch.zeros_like(gt_force_label), pred_force) #+ torch.max((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label), torch.zeros_like(pred_action[:,:7])).sum() * 100.0
-      
-      #imitate_loss = F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]) + 0.01 * F.mse_loss(torch.zeros_like(gt_force_label), pred_force) #+ torch.max((pred_action[:,:7] - real_traj_goal) * (pred_action[:,:7] - gt_dmp_goal_label), torch.zeros_like(pred_action[:,:7])).sum() * 100.0
- 
-      pred_force_in_action = pred_action[:,7:].reshape((self.params.batch_size,self.params.a_dim,self.params.traj_timesteps)).transpose(1,2) # (bn, 49, 7)
-      self.params.writer.add_scalar('eval_imitate_loss/vio_loss_count',vio_loss_count, self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_imitate_loss/imitate_loss',imitate_loss, self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_imitate_loss/imitate_loss1',F.mse_loss(real_traj_goal, pred_action[:,:7]), self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_imitate_loss/imitate_loss2',F.mse_loss(gt_dmp_goal_label, pred_action[:,:7]), self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_imitate_loss/imitate_loss3',0.001 * F.mse_loss(gt_force_label, pred_force), self.imitate_step_eval)
-
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_0',pred_action[:,0].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_1',pred_action[:,1].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_2',pred_action[:,2].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_3',pred_action[:,3].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_4',pred_action[:,4].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_5',pred_action[:,5].mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_6',pred_action[:,6].mean(),self.imitate_step_eval)
-
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_0',(pred_force_in_action[:,:,0]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_1',(pred_force_in_action[:,:,1]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_2',(pred_force_in_action[:,:,2]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_3',(pred_force_in_action[:,:,3]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_4',(pred_force_in_action[:,:,4]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_5',(pred_force_in_action[:,:,5]).mean(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_force_in_action_6',(pred_force_in_action[:,:,6]).mean(),self.imitate_step_eval)
-
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_0_std',pred_action[:,0].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_1_std',pred_action[:,1].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_2_std',pred_action[:,2].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_3_std',pred_action[:,3].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_4_std',pred_action[:,4].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_5_std',pred_action[:,5].std(),self.imitate_step_eval)
-      self.params.writer.add_scalar('eval_pred_raw_action/pred_action_6_std',pred_action[:,6].std(),self.imitate_step_eval)
+      self.params.writer.add_scalar('train_imitate_loss/imitate_loss',imitate_loss, self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_0',pred_feedback[:,0].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_1',pred_feedback[:,1].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_2',pred_feedback[:,2].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_3',pred_feedback[:,3].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_4',pred_feedback[:,4].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_5',pred_feedback[:,5].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_pred_action/pred_action_6',pred_feedback[:,6].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_0',gt_feedback[:,0].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_1',gt_feedback[:,1].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_2',gt_feedback[:,2].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_3',gt_feedback[:,3].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_4',gt_feedback[:,4].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_5',gt_feedback[:,5].mean(),self.imitate_step)
+      self.params.writer.add_scalar('train_imitate_gt_action/gt_action_6',gt_feedback[:,6].mean(),self.imitate_step)

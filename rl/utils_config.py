@@ -10,8 +10,6 @@ def load_args():
     parser.add_argument('--use_cem', action='store_true')
 
     #### model specification
-    parser.add_argument('--max_action', default=0.5, type=float, help='maximum action in translation')
-    parser.add_argument('--rotation_max_action', default=0.0, type=float, help='maximum action in rotation')
     parser.add_argument('--a_dim', default=7, type=int, help='action dimension that our model predicts')
     parser.add_argument('--img_w', default=160, type=int)
     parser.add_argument('--img_h', default=120, type=int)
@@ -26,6 +24,8 @@ def load_args():
     ### experiment specification
     parser.add_argument('--classifier', default='video', type=str, choices=['video', 'image'])
     parser.add_argument('--max_ep', default=50000, type=int, help="maximum episode in the training stage")
+    parser.add_argument('--max_action', default=0.5, type=float, help='maximum action in translation')
+    parser.add_argument('--rotation_max_action', default=0.0, type=float, help='maximum action in rotation')
 
     ## training specification
     parser.add_argument('--a_lr', default=1e-5, type=float, help='the learning rate of the actor')
@@ -35,11 +35,12 @@ def load_args():
     parser.add_argument('--explore_decay', default=0.9999, type=float, help='the exploring variable')
     parser.add_argument('--start_learning_episode', default=2000, type=float, help='start learning step')
     parser.add_argument('--saving_model_freq', default=1000, type=int, help='how often to save the current trained model weight')
-    parser.add_argument('--batch_size', default=32, type=int)
+    parser.add_argument('--batch_size', default=64, type=int)
 
     parser.add_argument('--mem_capacity', default=10000, type=int, help='the capacity of the reply buffer')
     parser.add_argument('--video_reward', action='store_false', help="use video classification as the reward")
     parser.add_argument('--gt_reward', action='store_true',help="use ground truth reward")
+    parser.add_argument('--action_penalty', default=0.1, type=float, help="action penalty")
 
     ## testing specification
     parser.add_argument('--max_ep_test', default=100, type=int, help='maximum episode in the test stage')
@@ -60,12 +61,26 @@ def load_args():
 
     ## feedback specification
     parser.add_argument('--feedback_term', action='store_true', help="use feedback term")
-    parser.add_argument('--a_f_lr', default=1e-5, type=float, help='the learning rate of the actor_feedback')
-    parser.add_argument('--c_f_lr', default=5e-5, type=float, help='the learning rate of the critic_feedback')
-    parser.add_argument('--mem_feedback_capacity', default=10000, type=int, help='the capacity of the reply buffer')
+    parser.add_argument('--a_f_lr', default=1e-4, type=float, help='the learning rate of the actor_feedback')
+    parser.add_argument('--c_f_lr', default=1e-3, type=float, help='the learning rate of the critic_feedback')
 
+    parser.add_argument('--start_learning_timestep', default=2000, type=float, help='start learning step')
+    parser.add_argument('--max_feedback_action', default=0.03, type=float, help='maximum action in translation')
+    parser.add_argument('--rotation_max_feedback_action', default=0.0, type=float, help='maximum action in rotation')
+    parser.add_argument('--discount', default=0.9, type=float, help='maximum action in rotation')
+    parser.add_argument('--max_ep_feedback_test', default=30, type=int, help='maximum episode in the test stage')
+    parser.add_argument('--stack_num', default=4, type=int)
+    parser.add_argument('--mem_feedback_capacity', default=30000, type=int, help='the capacity of the reply buffer') #### make sure mem_feedback_capacity % stack_num == 0
+    parser.add_argument('--restore_feedback_episode',default=0,type=int)
+    parser.add_argument('--restore_feedback_path',default="",type=str)
+
+    ##feedback imitation specification
+    parser.add_argument('--c_m_lr', default=1e-5, type=float, help='the learning rate of the trajectory')
+    parser.add_argument('--max_ep_imitation_feedback', default=30, type=int, help='maximum episode in the imitation stage')
+    parser.add_argument('--max_iteration_feedback', default=1000000, type=int, help="max number of iteration in imitation learning")
 
     ### environment or task specification
+    parser.add_argument('--debug',action='store_true')
     parser.add_argument('--recordGif', action='store_true')
     parser.add_argument('--gif_dir', default="../gif_dir", type=str, help="directory of generated gif")
     parser.add_argument('--log_dir', default="../log_dir", type=str)
