@@ -273,7 +273,8 @@ class Worker(object):
                     print("suc rate %f reward %f var %f" % (current_performance, float(reward_check) / (episode_num + 0.0001), explore_var))
                     print("saving models at step%d" % ep_iter)
                     self.agent.save_model_actor_critic(ep_iter)
-                    self.test(ep_iter)
+                    cur_perf = self.test(ep_iter)
+                    self.writer.add_scalar("test/success_rate", cur_perf, ep_iter)
 
                 if done:
                     self.writer.add_scalar("train/success_rate", suc, ep_iter)
