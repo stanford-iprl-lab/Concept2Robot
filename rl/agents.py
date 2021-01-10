@@ -17,13 +17,9 @@ DMP_DIR = os.path.join(BASE_DIR,'../deepDynamicMovementPrimitives')
 sys.path.insert(0,DMP_DIR)
 from ddmp import DDMP  as DMP
 
-HOME_DIR = "/juno/u/lins2"
 sys.path.insert(0, "../../simulation")
-sys.path.insert(0,os.path.join(HOME_DIR,'bullet3/build_cmake/examples/pybullet'))
-import pybullet
 
 import bullet_client as bc
-from config import opti
 
 import torchvision.models as models
 import torch
@@ -32,16 +28,12 @@ import torch.nn.functional as F
 
 from torchvision import transforms
 
-A_DIM = 7 * 50
-TAU = 0.01
-
 #####
 from actor import Actor
 from critic import Critic
 #from actor_coupling import Actor_C
 #from critic_coupling import Critic_C
 from master import Master
-#from params import Params
 
 transforms = transforms.Compose([
   transforms.ToPILImage(),
@@ -51,11 +43,10 @@ transforms = transforms.Compose([
   ])
 
 
-class ASC(object):
+class Agent(object):
   def __init__(self, params):
     self.device = torch.device('cuda')
     self.policy_freq = 2
-    self.tau = 0.005
 
     self.params = params
     print("self.params.force_term",self.params.force_term)
@@ -120,7 +111,6 @@ class ASC(object):
     #if self.params.use_cem:    
     #  init_action = self.cem_choose_action(init_action, state, task_vec)
     return init_action
-
 
   def learn(self):
     self.step += 1
@@ -240,9 +230,6 @@ class ASC(object):
 
     save_path_actor = os.path.join(restore_path, 'actor_'+str(step)+'_model.pth.tar')
     self.actor.load_state_dict(torch.load(save_path_actor))
-
-    #save_path_master = os.path.join(restore_path, 'master_'+str(step)+'_model.pth.tar')
-    #self.master.load_state_dict(torch.load(save_path_master))
 
 
   def save_model(self, step):
