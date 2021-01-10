@@ -98,17 +98,6 @@ class Engine86(Engine):
         left_closet_info = self.p.getContactPoints (self.robotId, self.obj_id, self.robot.gripper_left_tip_index, -1)
         right_closet_info = self.p.getContactPoints (self.robotId, self.obj_id, self.robot.gripper_right_tip_index, -1)
         if len (left_closet_info) > 0 and len (right_closet_info) > 0 and obj_pos[1] < self.pos[1] - 0.05:
-          print("count",self.count)
-          if self.count > 200:
-            return
-          self.count += 1
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
-          r_pos = pos = self.robot.getEndEffectorPos()
-          self.fw1.writelines("%f %f %f\n" % (self.pos[0],self.pos[1],self.pos[2]))
-          self.fw2.writelines("%f %f %f\n" % (obj_pos[0],obj_pos[1],obj_pos[2]))
-          self.fw3.writelines("%f %f %f\n" % (r_pos[0],r_pos[1],r_pos[2]))
           return True
         else:
           return False
