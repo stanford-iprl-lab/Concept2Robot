@@ -23,8 +23,8 @@ PROJECT_DIR = os.path.join(BASE_DIR,'../')
 sys.path.insert(0,DMP_DIR)
 from ddmp import DDMP  as DMP
 
-sys.path.insert(0, "../simulation")
-sys.path.insert(0,"../external/bullet3/build_cmake/examples/pybullet")
+sim_DIR = "/juno/u/lins2"
+sys.path.insert(0,os.path.join(sim_DIR,'bullet3/build_cmake/examples/pybullet'))
 import pybullet
 
 import bullet_client as bc
