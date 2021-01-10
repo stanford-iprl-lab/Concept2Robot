@@ -78,7 +78,7 @@ class Engine5(Engine):
         HTrans[:3,:3] = r.as_dcm() 
         HTrans[:3,3] = self.obj1_pos
        
-        rotation_degree = np.random.uniform(-0.00005,0.0005) 
+        rotation_degree = np.random.uniform(-0.5,0.5)
         addRot = R.from_rotvec(rotation_degree * np.array([0,0,1]))
         addHTrans = np.zeros((4,4))
         addHTrans[:3,:3] = addRot.as_dcm()
