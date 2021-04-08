@@ -37,7 +37,7 @@ conda env create -f environment.yml
 conda activate concept2robot
 ```
 
-4. Download `data`, `models` folders into `ConceptManipulation` directory.
+4. Download [data](http://download.cs.stanford.edu/juno/Concept2Robot/data.zip), [models](http://download.cs.stanford.edu/juno/models.zip) folders into `ConceptManipulation` directory.
 
 
 ## In Progress
