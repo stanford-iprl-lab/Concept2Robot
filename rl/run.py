@@ -25,8 +25,8 @@ from ddmp import DDMP  as DMP
 
 sys.path.insert(0, "../simulation")
 
-sim_DIR = "/juno/u/lins2"
-sys.path.insert(0,os.path.join(sim_DIR,'bullet3/build_cmake/examples/pybullet'))
+# sim_DIR = "/home/suneelbelkhale"
+# sys.path.insert(0,os.path.join(sim_DIR,'bullet3/build_cmake/examples/pybullet'))
 
 #sys.path.insert(0,"../external/bullet3/build_cmake/examples/pybullet")
 #import pybullet

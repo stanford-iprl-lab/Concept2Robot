@@ -49,7 +49,7 @@ def main():
     os.makedirs(os.path.join(save_dir,'plots'))
 
   # assign Ctrl+C signal handler
-  signal.signal(Signal.SIGINT, ExperimentalRunCleaner(save_dir))
+  signal.signal(signal.SIGINT, ExperimentalRunCleaner(save_dir))
 
   # create model
   print(" > Creating model.... !")
@@ -107,7 +107,7 @@ def main():
                            nclips=config['nclips_train'],
                            step_size=config['step_size_train'],
                            is_val=False,
-                           transform_pre=transform_pre,
+                           transform_pre=transform_train_pre,
                            transform_post=transform_post,
                            augmentation_mappings_json=config['augmentation_mappings_json'],
                            augmentation_types_todo=config['augmentation_types_todo'],

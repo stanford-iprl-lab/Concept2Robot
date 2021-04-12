@@ -54,6 +54,9 @@ class Robot:
        self.robotId = self.p.loadURDF(model_path, [0, 0, 0], useFixedBase=True, flags=self.p.URDF_USE_SELF_COLLISION and self.p.URDF_USE_SELF_COLLISION_INCLUDE_PARENT) 
        self.p.resetBasePositionAndOrientation(self.robotId, [0, 0, 0], [0, 0, 0, 1])
 
+       # ee f/t
+       self.p.enableJointForceTorqueSensor(self.robotId, self.endEffectorIndex, enableSensor=1)  # 'getJointState' returns external f/t
+
        self.targetVelocities = [0] * self.num_controlled_joints
        self.positionGains = [0.03] * self.num_controlled_joints
        self.velocityGains = [1] * self.num_controlled_joints
@@ -114,6 +117,10 @@ class Robot:
 
     def getEndEffectorOrn(self):
         return np.array(self.p.getLinkState(self.robotId, self.endEffectorIndex)[1])
+
+    def getEndEffectorForceTorque(self):
+        external_ft = self.p.getJointState(self.robotId, self.endEffectorIndex)[2]
+        return np.array(external_ft)
 
     def getGripperTipPos(self):
         left_tip_pos = self.p.getLinkState(self.robotId, self.gripper_left_tip_index)[0]
