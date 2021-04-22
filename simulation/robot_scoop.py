@@ -47,7 +47,7 @@ class Robot:
        self.wrench_left_tip_index = 19
        self.wrench_right_tip_index = 20
 
-       model_path = os.path.join("/juno/u/lins2/","ConceptManipulation/simulation/urdf","panda_robotiq_scoop.urdf")
+       model_path = os.path.join(self.opti.project_dir,"panda_robotiq_scoop.urdf")
        print("model_path in urdf",model_path)
 
        self.robotId = self.p.loadURDF(model_path, [0, 0, 0],useFixedBase=True) 

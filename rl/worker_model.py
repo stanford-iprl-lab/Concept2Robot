@@ -45,7 +45,8 @@ class Enver(object):
     self.params = params
     self.TaskId = task_id
     self.wid = task_id
-    self.p_id = bc.BulletClient(connection_mode=pybullet.GUI)
+    mode = pybullet.GUI if params.gui else pybullet.DIRECT
+    self.p_id = bc.BulletClient(connection_mode=mode)
     time_sleep = np.random.uniform(0,100)
     env_module = importlib.import_module("env_{}".format(self.TaskId))
     RobotEnv = getattr(env_module, "Engine{}".format(self.TaskId))
@@ -188,17 +189,23 @@ class Worker(object):
                 if self.params.force_term:
                     # clip the forces in action_clip
                     action_forces = np.zeros((self.params.traj_timesteps, self.params.a_dim))
-                    forces_pred = action_clip[7:].reshape((self.params.a_dim, self.params.traj_timesteps)).transpose() * 50.0
+                    forces_pred = action_clip[self.params.a_dim:].reshape((self.params.a_dim, self.params.traj_timesteps)).transpose()
+                    forces_pred[:, :7] = forces_pred[:, :7] * 50
                     weights = np.linspace(1, 0, self.params.traj_timesteps).reshape((self.params.traj_timesteps, 1))
-                    action_forces[:, :7] = forces_pred * weights
+                    action_forces[:, :7] = forces_pred[:, :7] * weights
                     action_forces[:, 3:6] = (action_forces[:, 3:6]).clip(-self.params.rotation_max_action / np.pi * 50.0,
                                                      self.params.rotation_max_action / np.pi * 50.0)
+                    action_forces[:, 7:10] = forces_pred[:, 7:10] * 200.0
+
+                    # if self.params.haptic_term:
+                    #     trace = np.zeros((self.params.traj_timesteps, 3))
+                    #     action_forces[:, 7:] = trace
 
                     ### force term in action clip
                     forces_temp = np.copy(forces_pred) * weights
                     forces_temp[:, 3:6] = (forces_temp[:, 3:6]).clip( -self.params.rotation_max_action / np.pi * 50.0,
                         self.params.rotation_max_action / np.pi * 50.0)
-                    forces_temp[:-1, :] = forces_temp[:-1, :] / weights[:-1,
+                    forces_temp[:-1, :7] = forces_temp[:-1, :7] / weights[:-1,
                                                                 :] / 50.0  #### the last element of weight is zero.
                     forces_temp = forces_temp.transpose().reshape((-1,))
                     action_clip[self.params.a_dim:] = forces_temp
@@ -252,6 +259,12 @@ class Worker(object):
                 while len(self.env.real_traj_list) < self.env.dmp.timesteps:
                     self.env.real_traj_list.append(self.env.real_traj_list[-1])
                 traj_real = np.array(self.env.real_traj_list)
+
+                if len(initial_pose) < self.params.a_dim:
+                    # padding
+                    initial_pose = np.concatenate([initial_pose, np.zeros(self.params.a_dim - len(initial_pose))])
+                    traj_real = np.concatenate([traj_real, np.zeros((len(traj_real), self.params.a_dim - traj_real.shape[1]))], axis=-1)
+
                 traj_real = traj_real.reshape((-1,))
 
                 step_check += 1
@@ -282,7 +295,7 @@ class Worker(object):
                     episode_num += 1
                     break
 
-    def test(self, restore_episode=0, restore_path=None):
+    def test(self, restore_episode=0, restore_path=None, save_file=1):
         total_suc = 0
 
         if self.params.stage == "imitation":
@@ -338,9 +351,10 @@ class Worker(object):
                     action_forces = np.zeros((self.params.traj_timesteps, self.params.a_dim))
                     forces_pred = action_clip[self.params.a_dim:].reshape((self.params.a_dim, self.params.traj_timesteps)).transpose() * 50.0
                     weights = np.linspace(1, 0, self.params.traj_timesteps).reshape((self.params.traj_timesteps, 1))
-                    action_forces[:, :7] = forces_pred * weights
+                    action_forces[:, :7] = forces_pred[:, :7] * weights
                     action_forces[:, 3:6] = (action_forces[:, 3:6]).clip(-self.params.rotation_max_action / np.pi * 50.0,
                                                      self.params.rotation_max_action / np.pi * 50.0)
+                    action_forces[:, 7:10] = action_clip[self.params.a_dim:].reshape((self.params.a_dim, self.params.traj_timesteps))[7:10].transpose() * 200.0
                     observation_next, reward, done, suc = self.env.step(action_goal, action_forces, None, reset_flag)
                 else:
                     observation_next, reward, done, suc = self.env.step(action_goal, None, None, reset_flag)
@@ -352,7 +366,7 @@ class Worker(object):
                     feedback_term = np.zeros((7,))
                     observation_next, reward, done, suc = self.env.step(np.zeros((7,)), None, feedback_term, reset_flag)
 
-                print("Tesing", "success", suc, "taskid", self.TaskId, "ep_iter", ep_iter, " action", action_clip[:7], "action_pred", action_pred[:7],
+                print("Testing", "success", suc, "taskid", self.TaskId, "ep_iter", ep_iter, " action", action_clip[:7], "action_pred", action_pred[:7],
                       "reward", reward, "suc", suc, "dmp dist",
                       np.linalg.norm(self.env.robotCurrentStatus()[:3] - self.env.dmp.goal[:3]),
                       self.env.robotCurrentStatus()[:3], self.env.dmp.goal[:3])
@@ -378,7 +392,7 @@ class Worker(object):
                     forces_temp = forces_temp * weights
                     forces_temp[:, 3:6] = (forces_temp[:, 3:6]).clip( -self.params.rotation_max_action / np.pi * 50.0,
                         self.params.rotation_max_action / np.pi * 50.0)
-                    forces_temp[:-1, :] = forces_temp[:-1, :] / weights[:-1, :] / 50.0 #### the last element of weight is zero.
+                    forces_temp[:-1, :] = forces_temp[:-1, :] / weights[:-1, :] / 50.0  #### the last element of weight is zero.
                     forces_temp = forces_temp.transpose().reshape((-1,))
                     action_pred[self.params.a_dim:] = forces_temp
                     # Imporant!!! action_pred is clipped and has shape of (self.params.traj_timesteps + 1) * self.params.a_dim
@@ -394,8 +408,31 @@ class Worker(object):
                         recordGif_dir = os.path.join(self.params.gif_dir, str(self.params.task_id))
                         if not os.path.exists(recordGif_dir):
                             os.makedirs(recordGif_dir)
-                        imageio.mimsave(os.path.join(recordGif_dir, str(self.params.task_id) + '_' + str(ep_) + '.gif'),
+                        imageio.mimsave(os.path.join(recordGif_dir, str(self.params.task_id) + '_' + str(ep_iter) + '.gif'),
                                         self.env.obs_list)
+
+                    # save successful rollouts only
+                    if save_file is not None and len(self.env.ft_list) > 0 and self.env.success_flag:
+                        recordGif_dir = os.path.join(self.params.gif_dir, str(self.params.task_id))
+                        if not os.path.exists(recordGif_dir):
+                            os.makedirs(recordGif_dir)
+                        np.save(os.path.join(recordGif_dir, "ft_%d.npy" % ep_iter), self.env.ft_list)
+
+                        # forcing targets and terms
+                        dc = {}
+                        if self.env.forcing_target is not None:
+                            dc['forcing_target'] = self.env.forcing_target
+                        if self.env.haptic_target is not None:
+                            dc['haptic_target'] = self.env.haptic_target
+                        if len(self.env.haptic_err_terms) > 0:
+                            dc['haptic_err_terms'] = np.array(self.env.haptic_err_terms)
+                        if len(self.env.haptic_int_terms) > 0:
+                            print(np.array(self.env.haptic_int_terms))
+                            dc['haptic_int_terms'] = np.array(self.env.haptic_int_terms)
+
+                        if len(dc.keys()) > 0:
+                            np.savez(os.path.join(recordGif_dir, "dmp_%d.npz" % ep_iter), **dc)
+
                     break
 
         perf = total_suc / float(max_iteration)

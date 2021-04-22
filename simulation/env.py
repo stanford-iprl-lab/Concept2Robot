@@ -26,7 +26,7 @@ try:
     from .utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
     from .robot import Robot
 except Exception:
-    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code   
+    from utils_env import get_view,safe_path,cut_frame,point2traj,get_gripper_pos,backup_code
     from robot import Robot
 
 #################################
@@ -92,6 +92,8 @@ class Engine:
         self.taskId = taskId
         self.cReward = cReward
         self.n_dmps = n_dmps
+        self.kp_haptic = self.opti.haptic_kp  # 1e-2  # converts N -> delta m/s^2
+        self.ki_haptic = self.opti.haptic_ki  # 1e-4
 
         self.p.setPhysicsEngineParameter(enableConeFriction=1)
         self.p.setPhysicsEngineParameter(contactBreakingThreshold=0.001)
@@ -108,7 +110,8 @@ class Engine:
         self.p.setPhysicsEngineParameter(constraintSolverType=self.p.CONSTRAINT_SOLVER_LCP_DANTZIG,globalCFM=0.000001)
         self.p.setPhysicsEngineParameter(enableFileCaching=0)
 
-        self.p.setTimeStep(1 / 100.0)
+        self.dt = 1/100.
+        self.p.setTimeStep(self.dt)
         self.p.setGravity(0,0,-9.81)
 
         #if self.opti.video_reward:
@@ -147,6 +150,12 @@ class Engine:
         self.epoch_suc = False
         self.epoch_done = False
         self.obs_list = []
+        self.ft_list = []
+        self.forcing_target = None
+        self.haptic_target = None
+        self.haptic_feedback = []
+        self.haptic_err_terms = []
+        self.haptic_int_terms = []
 
         self.max_steps = maxSteps
         self.env_step = 0
@@ -188,7 +197,7 @@ class Engine:
         elif self.classifier == "trn_video":
           sys.path.insert(0,'/juno/u/lins2/TRN-pytorch/')
           from models import TSN
-          model = TSN(self.config['num_classes'], 
+          model = TSN(self.config['num_classes'],
                             num_segments=1,
                             modality='RGB',
                             base_model='BNInception',
@@ -305,7 +314,7 @@ class Engine:
         self.data_q = np.load(os.path.join(self.configs_dir, 'init', 'q.npy'))
         self.data_dq = np.load(os.path.join(self.configs_dir, 'init', 'dq.npy'))
         self.data_gripper = np.load(os.path.join(self.configs_dir, 'init', 'gripper.npy'))
-       
+
     def init_plane(self):
         self.plane_id = self.p.loadURDF(os.path.join(self.resources_dir, 'urdf', 'plane.urdf'),
                                         [0.7, 0, 0], [0, 0, -math.pi * 0.02, 1], globalScaling=0.7)
@@ -365,7 +374,7 @@ class Engine:
     def reset_obj(self):
         if self.opti.object_id == 'bottle':
             self.obj_position = [0.4, -0.15, 0.42]
-            self.obj_orientation = p.getQuaternionFromEuler([math.pi/2, 0, 0])
+            self.obj_orientation = self.p.getQuaternionFromEuler([math.pi/2, 0, 0])
             self.obj_scaling = 1.4
             self.p.resetBasePositionAndOrientation(self.obj_id,self.obj_position,self.obj_orientation)#,physicsClientId=self.physical_id)
 
@@ -375,12 +384,12 @@ class Engine:
         if self.opti.object_id == 'nut':
             self.p.resetBasePositionAndOrientation(self.obj_id,self.obj_position,self.obj_orientation)
 
-       
+
     def run(self):
         for i in range(self.data_q.shape[0]):
             jointPoses = self.data_q[i]
             for j in range(self.robotEndEffectorIndex):
-                p.resetJointState(self.robotId, j, jointPoses[j], self.data_dq[i][j])
+                self.p.resetJointState(self.robotId, j, jointPoses[j], self.data_dq[i][j])
 
             gripper = self.data_gripper[i]
             self.gripperOpen = 1 - gripper / 255.0
@@ -388,15 +397,15 @@ class Engine:
                 self.gripperLowerLimitList) * self.gripperOpen
             for j in range (6):
                 index_ = self.activeGripperJointIndexList[j]
-                p.resetJointState (self.robotId, index_, self.gripperPos[j], 0)
+                self.p.resetJointState (self.robotId, index_, self.gripperPos[j], 0)
 
             img_info = self.p.getCameraImage (width=self.w,
                                          height=self.h,
                                          viewMatrix=self.view_matrix,
                                          projectionMatrix=self.proj_matrix,
                                          shadow=-1,
-                                         flags=p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
-                                         renderer=p.ER_TINY_RENDERER)
+                                         flags=self.p.ER_SEGMENTATION_MASK_OBJECT_AND_LINKINDEX,
+                                         renderer=self.p.ER_TINY_RENDERER)
             self.save_video(img_info,i)
             self.p.stepSimulation()
 
@@ -405,9 +414,9 @@ class Engine:
         for i in range (self.data_q.shape[0]):
             poses = self.data_q[i]
             for j in range (7):
-                p.resetJointState (self.robotId, j, poses[j], self.data_dq[i][j])
+                self.p.resetJointState (self.robotId, j, poses[j], self.data_dq[i][j])
 
-            state = p.getLinkState (self.robotId, 7)
+            state = self.p.getLinkState (self.robotId, 7)
             pos = state[0]
             orn = state[1]
             pos_traj.append (pos)
@@ -417,7 +426,7 @@ class Engine:
         pos_traj = np.load(os.path.join(self.config_dir, 'init', 'pos.npy'))
         orn_traj = np.load(os.path.join(self.config_dir, 'init', 'orn.npy'))
         self.fix_orn = np.load(os.path.join(self.config_dir, 'init', 'orn.npy'))
- 
+
         for j in range (7):
             self.p.resetJointState(self.robotId, j, self.data_q[0][j], self.data_dq[0][j])
 
@@ -444,16 +453,16 @@ class Engine:
 
             start_id += 1
 
-        pos = p.getLinkState (self.robotId, 7)[0]
+        pos = self.p.getLinkState (self.robotId, 7)[0]
         left_traj = point2traj([pos, [pos[0], pos[1]+0.14, pos[2]+0.05]])
         start_id = self.move(left_traj, orn_traj,start_id)
 
-        self.start_pos = p.getLinkState(self.robotId,7)[0]
+        self.start_pos = self.p.getLinkState(self.robotId,7)[0]
 
     def move_up(self):
         # move in z-axis direction
         orn_traj = np.load(os.path.join(self.configs_dir, 'init', 'orn.npy'))
-        pos = p.getLinkState (self.robotId, 7)[0]
+        pos = self.p.getLinkState (self.robotId, 7)[0]
         up_traj = point2traj ([pos, [pos[0], pos[1], pos[2] + 0.3]],delta=0.005)
         start_id = self.move (up_traj, orn_traj,0)
 
@@ -526,9 +535,17 @@ class Engine:
         self.init_grasp ()
         self.reset_obs_list()
         self.real_traj_list = []
-        self.obs_list = [] 
-        observation = self.get_observation()      
+        self.obs_list = []
+        self.ft_list = []
+        self.forcing_target = None
+        self.haptic_target = None
+        self.haptic_feedback = []
+        self.haptic_err_terms = []
+        self.haptic_int_terms = []
+        observation = self.get_observation()
         self.env_step = 0
+        self.last_ft = np.zeros(6)
+        self.ee_f_int = np.zeros(3)
         return observation
 
 
@@ -557,7 +574,13 @@ class Engine:
           dmp_end_pos = [x+y for x,y in zip(self.start_status,action)]
           self.dmp.set_goal(dmp_end_pos)
           if f_w is not None:
-            self.dmp.set_force(f_w)
+            self.forcing_target = f_w[:, :self.n_dmps]
+            self.dmp.set_force(self.forcing_target)
+            if self.opti.haptic_demo is not None:
+                self.haptic_target = np.load(self.opti.haptic_demo)[:, :3]  # load  the demo from file
+            elif self.opti.haptic_term:
+                self.haptic_target = f_w[:, self.n_dmps:]
+                assert self.haptic_target.shape[1] == 3
           self.dmp.reset_state()
           self.dmp.rollout()
           self.dmp.reset_state()
@@ -565,12 +588,28 @@ class Engine:
           p1 = self.start_pos
           p1 = np.array(p1)
           self.dmp.timestep = 0
+          self.ee_f_int = np.zeros(3)
+
           small_observation = self.step_within_dmp (coupling)
           lenT = len(self.dmp.force[:,0])
         else:
           small_observation = self.step_within_dmp(coupling)
         seg = None
         observation_next, seg = self.get_observation(segFlag=True)
+        mode = 0
+        if mode == 0:
+            ft_next = self.robot.getForceTorque(world=True, index=self.robot.wristJointIndex)  # coupling joint index
+        elif mode == 1:
+            ft_next = self.robot.getForceTorque(world=True, index=self.robot.gripper_right_tip_index)  # in world frame
+            ft_next += self.robot.getForceTorque(world=True, index=self.robot.gripper_left_tip_index)  # in world frame
+        else:
+            f = self.robot.getContactForces()  # sums
+            ft_next = np.concatenate([f, [0,0,0]])  # torques are zero in this mode
+
+        # add to the list of forces after each step
+        self.ft_list.append(ft_next)
+        self.last_ft = ft_next
+
         reward = 0
         done = False
         suc = False
@@ -638,9 +677,29 @@ class Engine:
         cur_gripper_pos = self.robot.getGripperPos()
         return np.array([cur_pos[0],cur_pos[1],cur_pos[2],cur_orn[0],cur_orn[1],cur_orn[2],cur_gripper_pos])
 
+    def compute_feedback(self):
+        # this gets added to y_ddot, to form the current step acceleration
+        if not self.opti.haptic_term or len(self.haptic_target) <= self.dmp.timestep:
+            self.ee_f_int *= 0.75  # exponential decay of integral term
+            f_targ = self.last_ft[:3]  # zero new errors
+        else:
+            f_targ = self.haptic_target[self.dmp.timestep]
+
+        f_true = self.last_ft[:3]
+        err = f_targ - f_true
+
+        self.ee_f_int += err * self.dt
+
+        self.haptic_err_terms.append(err.copy())
+        self.haptic_int_terms.append(self.ee_f_int.copy())
+
+        force_to_pos = self.kp_haptic * err + self.ki_haptic * self.ee_f_int
+        return np.concatenate([force_to_pos, np.zeros(4)])  # shape is (7,)
 
     def step_within_dmp(self,coupling):
-        action = self.dmp.step(coupling)[0]
+        feedback = self.compute_feedback()
+        self.haptic_feedback.append(feedback)
+        action, dy, ddy = self.dmp.step(coupling, feedback)
         pos = np.array(action[:3])
         if len(action) > 3:
           orn = angleaxis2quaternion(action[3:6])
@@ -685,7 +744,7 @@ class Engine:
         self.obs_list.append(img)
 
         if segFlag:
-            seg = img_info[4] 
+            seg = img_info[4]
             return img, seg
         else:
             return img
@@ -745,7 +804,7 @@ class Engine:
         reward = output[taskId] * 174.0 - 2.0
         reward = 1. / (1. + np.exp(-reward))
         return reward
- 
+
     def get_tsm_video_reward(self, taskId=None):
         if taskId is None:
           taskId = self.taskId
@@ -768,8 +827,8 @@ class Engine:
         reward = output[taskId] * 174.0 - 2.0
         reward = 1. / (1. + np.exp(-reward))
         return reward
- 
-    def taskColliDet(self): 
+
+    def taskColliDet(self):
         return False
 
     def get_reward (self,seg=None):
@@ -786,3 +845,7 @@ class Engine:
 
     def get_handcraft_reward(self,seg=None):
         return 1.0, False, None
+
+
+if __name__ == '__main__':
+    args = load_args()

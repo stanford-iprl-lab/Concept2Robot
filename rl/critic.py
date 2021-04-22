@@ -47,12 +47,12 @@ class Critic(nn.Module):
     self.task_feat_block3 = nn.Linear(256, 128)
 
     if not self.params.force_term:
-      self.action_feat_block1 = nn.Linear(7, 256)
+      self.action_feat_block1 = nn.Linear(self.params.a_dim, 256)
     else:
       if 0:#self.params.only_force_term:
-        self.action_feat_block1 = nn.Linear(49 * 7, 256)
+        self.action_feat_block1 = nn.Linear(49 * self.params.a_dim, 256)
       else:
-        self.action_feat_block1 = nn.Linear(7 + 49 * 7, 256)
+        self.action_feat_block1 = nn.Linear(self.params.a_dim + 49 * self.params.a_dim, 256)
 
     self.action_feat_block2 = nn.Linear(256, 256)
     self.action_feat_block3 = nn.Linear(256, 128)

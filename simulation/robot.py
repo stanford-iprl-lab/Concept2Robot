@@ -55,7 +55,10 @@ class Robot:
        self.p.resetBasePositionAndOrientation(self.robotId, [0, 0, 0], [0, 0, 0, 1])
 
        # ee f/t
-       self.p.enableJointForceTorqueSensor(self.robotId, self.endEffectorIndex, enableSensor=1)  # 'getJointState' returns external f/t
+       self.wristJointIndex = self.endEffectorIndex + 1
+       self.p.enableJointForceTorqueSensor(self.robotId, self.wristJointIndex, enableSensor=1)  # 'getJointState' returns external f/t
+       self.p.enableJointForceTorqueSensor(self.robotId, self.gripper_right_tip_index, enableSensor=1)  # 'getJointState' returns external f/t
+       self.p.enableJointForceTorqueSensor(self.robotId, self.gripper_right_tip_index, enableSensor=1)  # 'getJointState' returns external f/t
 
        self.targetVelocities = [0] * self.num_controlled_joints
        self.positionGains = [0.03] * self.num_controlled_joints
@@ -118,16 +121,43 @@ class Robot:
     def getEndEffectorOrn(self):
         return np.array(self.p.getLinkState(self.robotId, self.endEffectorIndex)[1])
 
-    def getEndEffectorForceTorque(self):
-        external_ft = self.p.getJointState(self.robotId, self.endEffectorIndex)[2]
-        return np.array(external_ft)
+    def getForceTorque(self, world=False, index=None):
+        if index is None:
+            index = self.wristJointIndex  # this is the panda robotiq coupling joint
+        external_ft = self.p.getJointState(self.robotId, index)[2]
+        external_ft = np.array(external_ft)
+        if world:
+            # offset in parent frame of joint
+            pf_pos, pf_orn, p_idx = self.p.getJointInfo(self.robotId, index)[-3:]
+            j2p = np.asarray(self.p.getMatrixFromQuaternion(pf_orn)).reshape((3, 3))
+            # parent frame
+            p_pos, p_orn = self.p.getLinkState(self.robotId, p_idx)[:2]
+            p2w = np.asarray(self.p.getMatrixFromQuaternion(p_orn)).reshape((3, 3))
+            # orn = self.p.getLinkState(self.robotId, index)[1]
+            j2w = p2w @ j2p
+            external_ft[:3] = j2w @ external_ft[:3]
+            external_ft[3:] = j2w @ external_ft[3:]
+        return external_ft
+
+    def getContactForces(self):
+        cpts = self.p.getContactPoints(bodyA=self.robotId)
+        f_total = np.zeros(3)
+        for pt in cpts:
+            # only links after the end effector get counted
+            if pt[3] >= self.endEffectorIndex:
+                normal = np.array(pt[7]) * pt[9]
+                lat_f1 = np.array(pt[11]) * pt[10]
+                lat_f2 = np.array(pt[13]) * pt[12]
+                assert normal.shape == lat_f2.shape == lat_f1.shape
+                f_total += normal + lat_f1 + lat_f2
+        return f_total
 
     def getGripperTipPos(self):
         left_tip_pos = self.p.getLinkState(self.robotId, self.gripper_left_tip_index)[0]
         right_tip_pos = self.p.getLinkState(self.robotId, self.gripper_right_tip_index)[0]
         gripper_tip_pos = 0.5 * np.array(left_tip_pos) + 0.5 * np.array(right_tip_pos)
         return gripper_tip_pos
-   
+
     def operationSpacePositionControl(self,pos,orn=None,null_pose=None,gripperPos=None):
         if null_pose is None and orn is None:
             jointPoses = self.p.calculateInverseKinematics(self.robotId, self.endEffectorIndex, pos,
@@ -262,4 +292,3 @@ class Robot:
             if cl[0][8] < 0.02:
               return True
       return False
-

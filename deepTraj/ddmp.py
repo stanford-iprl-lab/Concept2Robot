@@ -49,6 +49,7 @@ class DDMP():
       self.force = force
     else:
       self.force = np.zeros((self.timesteps,self.n_dmps))
+
     self.timestep = 0
     self.grad_y_goal = None
     self.grad_y_force = None
@@ -123,10 +124,12 @@ class DDMP():
     return y_track, dy_track, ddy_track
 
  
-  def step(self,coupling=None):
+  def step(self,coupling=None, feedback_ddy=None):
     s = self.timestep
     self.timestep += 1
     self.ddy = self.ay * (self.by * (self.goal - self.y) - self.dy) + self.force[s]
+    if feedback_ddy is not None:
+        self.ddy += feedback_ddy
     self.dy += self.ddy * self.dt
     self.y += self.dy * self.dt
     if coupling is not None:

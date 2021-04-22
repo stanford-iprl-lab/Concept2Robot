@@ -10,7 +10,7 @@ def load_args():
     parser.add_argument('--use_cem', action='store_true')
 
     #### model specification
-    parser.add_argument('--a_dim', default=7, type=int, help='action dimension that our model predicts')
+    parser.add_argument('--a_dim', default=7, type=int, help='action dimension that our model predicts')  ##
     parser.add_argument('--img_w', default=160, type=int)
     parser.add_argument('--img_h', default=120, type=int)
     parser.add_argument('--state_dim', default=120 * 160 * 3, type=int, help='state dimension of the scene image')
@@ -20,6 +20,10 @@ def load_args():
     parser.add_argument('--force_term', action='store_true', help='use force term to generate the motion trajectory')
     parser.add_argument('--only_force_term', action='store_true',
                         help='only use force term to generate the motion trajectory')
+    parser.add_argument('--haptic_term', action='store_true', help='use & generate haptic feedback')  ##
+    parser.add_argument('--haptic_demo', type=str, help='haptic seq demo to guide')  ##
+    parser.add_argument('--haptic_kp', type=float, default=1e-2, help='Kp for force feedback')  ##
+    parser.add_argument('--haptic_ki', type=float, default=1e-4, help='Kp for force feedback')  ##
 
     ### experiment specification
     parser.add_argument('--classifier', default='video', type=str, choices=['video', 'image'])
