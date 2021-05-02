@@ -21,8 +21,10 @@ class Engine27(Engine):
         super(Engine27,self).__init__(opti, wid=worker_id, p_id=p_id, maxSteps=maxSteps, taskId=taskId, n_dmps=n_dmps, cReward=cReward,robot_model=None)
         self.opti = opti
         self._wid = worker_id
-        self.robot.gripperMaxForce = 10000.0
-        self.robot.armMaxForce = 200.0
+
+        self.smaller_forces = True
+        self.robot.gripperMaxForce = 10.0 if self.smaller_forces else 10000.0
+        self.robot.armMaxForce = 10.0 if self.smaller_forces else 200.0
         self.robot.jd = [0.01] * 14
 
         self.p.setPhysicsEngineParameter(enableConeFriction=1)
@@ -55,13 +57,13 @@ class Engine27(Engine):
     def reset_obj(self):
         self.p.resetBasePositionAndOrientation(self.obj_id,[0.3637 + 0.06, -0.05, 0.34],[0, 0, -0.1494381, 0.9887711])
   
-        obj_friction_ceof = 20000.0
+        obj_friction_ceof = 10. if self.smaller_forces else 20000.0
         self.p.changeDynamics(self.obj_id, -1, mass=0.9)
         self.p.changeDynamics(self.obj_id, -1, lateralFriction=obj_friction_ceof)
         self.p.changeDynamics(self.obj_id, -1, rollingFriction=obj_friction_ceof)
         self.p.changeDynamics(self.obj_id, -1, spinningFriction=obj_friction_ceof)
-        self.p.changeDynamics(self.obj_id, -1, linearDamping=40.0)
-        self.p.changeDynamics(self.obj_id, -1, angularDamping=1.0)
+        self.p.changeDynamics(self.obj_id, -1, linearDamping=0.1 if self.smaller_forces else 40.)
+        self.p.changeDynamics(self.obj_id, -1, angularDamping=0.1 if self.smaller_forces else 1.0)
         self.p.changeDynamics(self.obj_id, -1, contactStiffness=1.0, contactDamping=0.9)
 
         table_friction_ceof = 0.4

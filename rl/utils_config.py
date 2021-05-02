@@ -21,6 +21,7 @@ def load_args():
     parser.add_argument('--only_force_term', action='store_true',
                         help='only use force term to generate the motion trajectory')
     parser.add_argument('--haptic_term', action='store_true', help='use & generate haptic feedback')  ##
+    parser.add_argument('--haptic_net_separate', action='store_true', help='haptic conv transpose separate from regular')  ##
     parser.add_argument('--haptic_demo', type=str, help='haptic seq demo to guide')  ##
     parser.add_argument('--haptic_kp', type=float, default=1e-2, help='Kp for force feedback')  ##
     parser.add_argument('--haptic_ki', type=float, default=1e-4, help='Kp for force feedback')  ##
@@ -30,6 +31,7 @@ def load_args():
     parser.add_argument('--max_ep', default=50000, type=int, help="maximum episode in the training stage")
     parser.add_argument('--max_action', default=0.5, type=float, help='maximum action in translation')
     parser.add_argument('--rotation_max_action', default=0.0, type=float, help='maximum action in rotation')
+    parser.add_argument('--object_id', default='nut', type=str, help='object to use (not always used)')
 
     ## training specification
     parser.add_argument('--a_lr', default=1e-5, type=float, help='the learning rate of the actor')
@@ -42,6 +44,8 @@ def load_args():
     parser.add_argument('--batch_size', default=64, type=int)
 
     parser.add_argument('--mem_capacity', default=10000, type=int, help='the capacity of the reply buffer')
+    parser.add_argument('--memory_file', default='', type=str, help='replay file to load as a starting point')
+    parser.add_argument('--do_save_every_n', type=int, default=0, help='save replay file every n steps')
     parser.add_argument('--video_reward', action='store_false', help="use video classification as the reward")
     parser.add_argument('--gt_reward', action='store_true',help="use ground truth reward")
     parser.add_argument('--action_penalty', default=0.1, type=float, help="action penalty")

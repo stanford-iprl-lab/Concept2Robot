@@ -60,6 +60,9 @@ class Robot:
        self.p.enableJointForceTorqueSensor(self.robotId, self.gripper_right_tip_index, enableSensor=1)  # 'getJointState' returns external f/t
        self.p.enableJointForceTorqueSensor(self.robotId, self.gripper_right_tip_index, enableSensor=1)  # 'getJointState' returns external f/t
 
+       # TODO change for other end effectors (this is robotiq)
+       self.wrist_hanging_mass = 1.869928806976360 / 9.81  # F / a
+
        self.targetVelocities = [0] * self.num_controlled_joints
        self.positionGains = [0.03] * self.num_controlled_joints
        self.velocityGains = [1] * self.num_controlled_joints

@@ -54,6 +54,7 @@ class Agent(object):
     self.memory = np.zeros((self.params.mem_capacity, self.params.a_dim + self.params.traj_timesteps * self.params.a_dim + self.params.state_dim + self.params.a_dim + self.params.traj_timesteps * self.params.a_dim + 2 + self.params.task_dim), dtype=np.float32)
     print("self.memory",self.memory.shape,self.params.a_dim,self.params.traj_timesteps * self.params.a_dim,self.params.state_dim ,self.params.traj_timesteps * self.params.a_dim,self.params.task_dim)
     self.pointer = 0
+    self.add_step = 0
     self.step = 0
 
     self.step_traj = 0
@@ -100,6 +101,7 @@ class Agent(object):
     index = self.pointer % self.params.mem_capacity
     self.memory[index, :] = transition
     self.pointer += 1
+    self.add_step += 1  # counter of how many adds
 
   def store_transition_feedback(self, flag, s, a, r, t, task_vec):
     transition = np.hstack(([flag], s, a, [r, t], task_vec))
@@ -119,6 +121,7 @@ class Agent(object):
     np.save(save_file_path, transition)
     print(save_file_path)
     self.pointer += 1
+    self.add_step += 1  # counter of how many adds
 
   def store_transition_feedback_locally(self, timestep, flag, s, a, r, t, task_vec, save_top_dir):
     transition = np.hstack((flag, s, a, [r, t], task_vec))
@@ -385,6 +388,20 @@ class Agent(object):
     print("states",states.size(),"actions",actions.size(),"task_vecs",task_vecs.size())
     Qs = self.critic(states, task_vecs, actions)
     return Qs.cpu().data.numpy().flatten()
+
+  def save_memory(self):
+    save_path_memory = os.path.join(self.params.model_dir, 'memory.npz')
+    data = self.memory[:self.add_step]
+    np.savez_compressed(save_path_memory, memory=data, pointer=self.pointer, add_step=self.add_step)
+
+  def restore_memory(self):
+    save_path_memory = os.path.abspath(self.params.memory_file)
+    data = np.load(save_path_memory)
+    self.pointer = data['pointer']
+    self.add_step = data['add_step']
+    dlen = self.params.mem_capacity if self.add_step >= self.params.mem_capacity else self.pointer
+    self.memory[:dlen] = data['memory'][:dlen]
+    print("Memory restored for agent (added = %d, ptr= %d)" % (self.pointer, self.add_step))
 
   def save_model_actor_critic(self, step):
     save_path_critic = os.path.join(self.params.model_dir, 'critic_'+str(step)+'_model.pth.tar')

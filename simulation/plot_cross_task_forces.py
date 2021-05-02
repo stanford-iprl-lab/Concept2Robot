@@ -64,26 +64,32 @@ for t in tasks:
 forces = [fseq[..., :3] for fseq in all_ft_seqs]
 torques = [fseq[..., 3:] for fseq in all_ft_seqs]
 
-fig = plt.figure(figsize=(10,6), tight_layout=True)
-axes = fig.subplots(nrows=2, ncols=3)
+num_row = 1
+num_col = 6
+fig = plt.figure(figsize=(3 * num_col,3 * num_row), tight_layout=True)
+axes = fig.subplots(nrows=num_row, ncols=num_col)
 
 cm = plt.get_cmap('Accent', len(tasks))
-force_ax_labels = ['fx', 'fy', 'fz', 'tx', 'ty', 'tz']
-for r in range(2):
-    for c in range(3):
-        ax = axes[r][c]
+force_ax_labels = ['Force x', 'Force y', 'Force z', 'Torque x', 'Torque y', 'Torque z']
+for r in range(num_row):
+    for c in range(num_col):
+        ax = axes[r][c] if num_row > 1 else axes[c]
         added_set = set()
-        ax.set_title(force_ax_labels[r * 3 + c])
+        ax.set_title(force_ax_labels[r * num_col + c])
         for seq, t_id in zip(all_ft_seqs, task_ids):
             color = cm(tasks.index(t_id))
             # print(t_id, color)
             # print(seq.shape)
             if t_id in added_set:
-                ax.plot(range(seq.shape[0]), seq[:, r * 3 + c], c=color, label="_")
+                ax.plot(range(seq.shape[0]), seq[:, r * num_col + c], c=color, label="_")
             else:
-                ax.plot(range(seq.shape[0]), seq[:, r * 3 + c], c=color, label=labels[tasks.index(t_id)])
+                ax.plot(range(seq.shape[0]), seq[:, r * num_col + c], c=color, label=labels[tasks.index(t_id)])
             added_set.add(t_id)
 
-        ax.legend()
 
+if num_row > 1:
+    axes[0,0].legend()
+else:
+    axes[0].legend()
+# plt.suptitle('Wrist F/T over time')
 plt.show()

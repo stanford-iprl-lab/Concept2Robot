@@ -562,6 +562,17 @@ class Engine:
         else:
           return False
 
+    def get_force_torque(self, mode=0):
+        if mode == 0:
+            ft_next = self.robot.getForceTorque(world=True, index=self.robot.wristJointIndex)  # coupling joint index
+            ft_next[2] -= 9.81 * self.robot.wrist_hanging_mass  # we can do this since its in world frame
+        elif mode == 1:
+            ft_next = self.robot.getForceTorque(world=True, index=self.robot.gripper_right_tip_index)  # in world frame
+            ft_next += self.robot.getForceTorque(world=True, index=self.robot.gripper_left_tip_index)  # in world frame
+        else:
+            f = self.robot.getContactForces()  # sums
+            ft_next = np.concatenate([f, [0, 0, 0]])  # torques are zero in this mode
+        return ft_next
 
     def step_dmp(self,action,f_w,coupling,reset,test=False):
         if reset:
@@ -589,6 +600,7 @@ class Engine:
           p1 = np.array(p1)
           self.dmp.timestep = 0
           self.ee_f_int = np.zeros(3)
+          self.last_ft = self.get_force_torque()
 
           small_observation = self.step_within_dmp (coupling)
           lenT = len(self.dmp.force[:,0])
@@ -596,16 +608,7 @@ class Engine:
           small_observation = self.step_within_dmp(coupling)
         seg = None
         observation_next, seg = self.get_observation(segFlag=True)
-        mode = 0
-        if mode == 0:
-            ft_next = self.robot.getForceTorque(world=True, index=self.robot.wristJointIndex)  # coupling joint index
-        elif mode == 1:
-            ft_next = self.robot.getForceTorque(world=True, index=self.robot.gripper_right_tip_index)  # in world frame
-            ft_next += self.robot.getForceTorque(world=True, index=self.robot.gripper_left_tip_index)  # in world frame
-        else:
-            f = self.robot.getContactForces()  # sums
-            ft_next = np.concatenate([f, [0,0,0]])  # torques are zero in this mode
-
+        ft_next = self.get_force_torque()
         # add to the list of forces after each step
         self.ft_list.append(ft_next)
         self.last_ft = ft_next
@@ -685,7 +688,7 @@ class Engine:
         else:
             f_targ = self.haptic_target[self.dmp.timestep]
 
-        f_true = self.last_ft[:3]
+        f_true = np.clip(self.last_ft[:3], -200., 200.)  # clip the forces to limit the K term to a "reasonable" force range
         err = f_targ - f_true
 
         self.ee_f_int += err * self.dt

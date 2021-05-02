@@ -70,7 +70,8 @@ for e in eps:
 forces = [fseq[..., :3] for fseq in all_ft_seqs]
 torques = [fseq[..., 3:] for fseq in all_ft_seqs]
 
-desired_forces = [dseq[:, :3] for dseq in all_dmp_seqs['haptic_target']]
+if dmp_path is not None:
+    desired_forces = [dseq[:, :3] for dseq in all_dmp_seqs['haptic_target']]
 
 fig = plt.figure(figsize=(10,10), tight_layout=True)
 axes = fig.subplots(nrows=3, ncols=3)
@@ -87,25 +88,29 @@ for r in range(3):
         ax = axes[r][c]
         ax.set_title(labels[r * 3 + c])
         if r == 0:
-            for i, seq, htarg in zip(range(len(eps)), forces, desired_forces):
-                ln = min(max_x, seq.shape[0], htarg.shape[0])
+            for i, seq in zip(range(len(eps)), forces):
+                ln = min(max_x, seq.shape[0])
+                if dmp_path is not None:
+                    htarg = desired_forces[i]
+                    ln = min(ln, htarg.shape[0])
+                    ax.plot(range(ln), htarg[:ln, c], c=episode_colors(i), linestyle='dashed')
                 ax.plot(range(ln), seq[:ln, c], c=episode_colors(i))
-                ax.plot(range(ln), htarg[:ln, c], c=episode_colors(i), linestyle='dashed')
         elif r < 2:
             for i, seq in enumerate(all_ft_seqs):
                 # print(seq.shape)
                 ax.plot(range(seq.shape[0]), seq[:, r * 3 + c], c=episode_colors(i))
         else:
-            added = {}
-            for key, ls_vals in all_dmp_seqs.items():
-                for seq in ls_vals:
-                    ln = min(max_x, seq.shape[0])
-                    if key in added.keys():
-                        ax.plot(range(ln), seq[:ln, c], label='_', c=added[key])
-                    else:
-                        # next color
-                        added[key] = plt.get_cmap('Accent', len(all_dmp_seqs.keys()))(len(added.keys()))
-                        ax.plot(range(ln), seq[:ln, c], label=key, c=added[key])
-            ax.legend()
+            if dmp_path is not None:
+                added = {}
+                for key, ls_vals in all_dmp_seqs.items():
+                    for i, seq in enumerate(ls_vals):
+                        ln = min(max_x, seq.shape[0])
+                        if key in added.keys():
+                            ax.plot(range(ln), seq[:ln, c], label='_', c=added[key])
+                        else:
+                            # next color
+                            added[key] = plt.get_cmap('Accent', len(all_dmp_seqs.keys()))(len(added.keys()))
+                            ax.plot(range(ln), seq[:ln, c], label=key, c=added[key])
+                ax.legend()
 
 plt.show()
