@@ -465,7 +465,7 @@ class Engine:
         for i in range(int(len(pos_traj))):
             pos = pos_traj[i]
             orn = orn_traj[i]
-            self.robot.operationSpacePositionControl(pos=pos,orn=orn,null_pose=self.data_q[i])
+            self.robot.positionControl(pos=pos,orn=orn,null_pose=self.data_q[i])
 
             img_info = self.p.getCameraImage (width=self.w,
                                          height=self.h,
@@ -653,7 +653,7 @@ class Engine:
             gripperPos = None
         else:
           gripperPos = None
-        self.robot.operationSpacePositionControl(pos,orn=orn,null_pose=self.data_q[0],gripperPos=gripperPos)
+        self.robot.positionControl(pos,orn=orn,null_pose=self.data_q[0],gripperPos=gripperPos)
         observation_next = None
         self.real_traj_list.append(self.robotCurrentStatus())
         return observation_next
@@ -662,7 +662,7 @@ class Engine:
     def step_without_dmp(self,action):
         action = action.squeeze()
         pos = np.array(self.robot.getEndEffectorPos()) + np.array(action)
-        self.robot.operationSpacePositionControl(pos,self.data_q[0])
+        self.robot.positionControl(pos,self.data_q[0])
         seg = None
         observation_next, seg = self.get_observation(segFlag=True)
         reward = 0

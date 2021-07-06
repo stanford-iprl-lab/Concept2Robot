@@ -80,7 +80,7 @@ class Engine100(Engine):
         pos[2] += 0.1
         orn = self.robot.getEndEffectorOrn()
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
 
         cur_joint = self.robot.getJointValue()
         cur_pos = np.array(self.obj_position)#self.robot.getEndEffectorPos()
@@ -89,13 +89,13 @@ class Engine100(Engine):
         cur_pos[0] += -0.08
         cur_pos[2] += 0.1
         for i in range(109):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
 
         pos = self.robot.getEndEffectorPos()
         pos[2] -= 0.02
         orn = self.robot.getEndEffectorOrn()
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
         self.p.resetBasePositionAndOrientation (self.obj_id, self.obj_position, self.obj_orientation)
         self.pos = np.array(self.p.getBasePositionAndOrientation(self.obj_id)[0])
 

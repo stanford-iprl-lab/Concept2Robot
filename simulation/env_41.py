@@ -62,7 +62,7 @@ class Engine41(Engine):
         pos[0] += -.1
         orn = self.robot.getEndEffectorOrn()
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=130)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=130)
         cur_joint = self.robot.getJointValue()
         cur_pos = self.robot.getEndEffectorPos()
         cur_orn = self.robot.getEndEffectorOrn()
@@ -70,7 +70,7 @@ class Engine41(Engine):
         cur_pos[:2] = cur_pos[:2] + pos_diff
         cur_pos[2] += 0.15
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
 
         obj_pos = self.p.getBasePositionAndOrientation(self.obj_id)[0]
         obj_pos = np.array(obj_pos)

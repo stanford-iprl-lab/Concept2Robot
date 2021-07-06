@@ -126,13 +126,13 @@ class Engine118(Engine):
         orn = self.robot.getEndEffectorOrn()
         self.null_q = self.robot.getJointValue()
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
 
         transl = np.random.uniform(-0.05,0.05,size=(2,))
         pos = self.robot.getEndEffectorPos()
         pos[:2] += transl
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
 
         pos = self.p.getLinkState (self.robotId, 7)[0]
         up_traj = point2traj([pos, [pos[0], pos[1], pos[2]+0.3]])

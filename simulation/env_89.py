@@ -83,7 +83,7 @@ class Engine89(Engine):
         pos[2] += 0.05
         orn = self.robot.getEndEffectorOrn()
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
 #        time.sleep(3)
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 

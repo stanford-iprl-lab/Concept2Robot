@@ -89,7 +89,7 @@ class Engine69(Engine):
         pos = [self.obj_x-0.1,self.obj_y-0.25,self.obj_z+0.1]
         orn = self.robot.getEndEffectorOrn()
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=255)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=255)
 
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
         self.pos = np.array(self.p.getBasePositionAndOrientation(self.obj_id)[0])

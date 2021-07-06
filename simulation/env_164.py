@@ -85,7 +85,7 @@ class Engine164(Engine):
         cur_pos[1] += 0.2
         cur_pos[2] += 0.05
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
  
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 

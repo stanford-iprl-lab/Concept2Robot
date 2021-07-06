@@ -85,7 +85,7 @@ class Engine8(Engine):
           pos[2] += 0.15
           orn = self.robot.getEndEffectorOrn()
           for i in range(30):
-            self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
+            self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
 
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 
@@ -122,7 +122,7 @@ class Engine8(Engine):
         cur_pos[2] = self.robot.getEndEffectorPos()[2]
         print("before initialiaztion")
         for i in range(4):
-          self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
+          self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
 
         ####
         cur_joint = self.robot.getJointValue()
@@ -136,7 +136,7 @@ class Engine8(Engine):
         #cur_pos[2] += self.robot.getEndEffectorPos()[2] + np.random.uniform(-0.05,0.05)
         print("before initialiaztion")
         for i in range(4):
-          self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
+          self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
 
 
     def get_success(self,seg=None):

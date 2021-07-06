@@ -115,13 +115,13 @@ class Engine49(Engine):
         self.robot.setJointValue(initial_pos,220)
 
         for i in range(19):
-          self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+          self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         self.p.setTimeStep(1 / 500.0)
         #pos = [0.30,0.01,0.533]
         #orn = self.p.getQuaternionFromEuler([math.pi,0,0])
         #for i in range(19):
-        #    self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+        #    self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
     def get_success(self,seg=None):
         success_flag = False

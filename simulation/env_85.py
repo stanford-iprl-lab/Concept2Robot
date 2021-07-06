@@ -88,7 +88,7 @@ class Engine85(Engine):
             pos[2] += 0.05
             orn = self.robot.getEndEffectorOrn()
             for i in range(30):
-                self.robot.operationSpacePositionControl(pos, orn, null_pose=self.null_q, gripperPos=gripper_v)
+                self.robot.positionControl(pos, orn, null_pose=self.null_q, gripperPos=gripper_v)
 
         pos = self.robot.getEndEffectorPos()
         pos[1] += 0.05
@@ -97,7 +97,7 @@ class Engine85(Engine):
         orn = self.robot.getEndEffectorOrn()
         #self.robot.moveTo(startPos=self.robot.getEndEffectorPos(),goalPos=pos,orn=orn, jointValues=self.null_q, gripperV=gripper_v)
         for i in range(10):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=140)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=140)
         time.sleep(3)
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
         self.box_position[2] *= -1.0

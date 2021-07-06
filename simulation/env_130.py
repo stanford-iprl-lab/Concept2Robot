@@ -99,7 +99,7 @@ class Engine130(Engine):
           self.null_q = self.data_q[0]
   
           for i in range(50):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
         
           cuppos = self.robot.getCupPos()
           print("cuppos",cuppos)
@@ -116,7 +116,7 @@ class Engine130(Engine):
           cur_pos[:2] = cur_pos[:2] + pos_diff
           cur_pos[2] -= 0.04
           for i in range(19):
-            self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=0)
+            self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=0)
 
           self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 

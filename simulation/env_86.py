@@ -77,7 +77,7 @@ class Engine86(Engine):
         pos[2] += 0.05
         orn = self.robot.getEndEffectorOrn()
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=graspV)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=graspV)
 #        time.sleep(3)
 
         cur_joint = self.robot.getJointValue()
@@ -87,7 +87,7 @@ class Engine86(Engine):
         cur_pos[:2] = cur_pos[:2] + pos_diff
         print("before initialiaztion")
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=graspV)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=graspV)
 
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
         self.pos = self.p.getBasePositionAndOrientation(self.obj_id)[0]

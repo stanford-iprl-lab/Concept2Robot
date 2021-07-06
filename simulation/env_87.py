@@ -75,7 +75,7 @@ class Engine87(Engine):
         cur_pos[2] += 0.05
         print("before initialiaztion")
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
         self.pos = self.p.getBasePositionAndOrientation(self.obj_id)[0]
 

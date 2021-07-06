@@ -91,7 +91,7 @@ class Engine109(Engine):
         pos[2] += 0.15
         orn = self.robot.getEndEffectorOrn()
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=150)
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 
         box_diff = np.random.uniform(-0.1,0.1,size=(2,))
@@ -109,7 +109,7 @@ class Engine109(Engine):
         cur_pos[2] += 0.02
         print("before initialiaztion")
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=150)
 
     def get_success(self,seg=None):
         box_AABB = self.p.getAABB(self.box_id)

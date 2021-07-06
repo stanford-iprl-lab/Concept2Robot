@@ -101,7 +101,7 @@ class Engine27(Engine):
         cur_pos[:2] = cur_pos[:2] + pos_diff
         cur_pos[2] += 0.02
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
         self.init_pos = self.p.getBasePositionAndOrientation(self.obj_id)[0]
 
     def get_success (self,seg=None):

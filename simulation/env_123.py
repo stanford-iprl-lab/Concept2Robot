@@ -164,7 +164,7 @@ class Engine123(Engine):
         orn = self.robot.getEndEffectorOrn()#$self.p.getQuaternionFromEuler([math.pi,0,0])
         pos[0] -= 0.1
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
 
         #print(self.p.getEulerFromQuaternion(orn))
         #pos = self.obj_pos#self.robot.getEndEffectorPos()#[self.obj_x-0.2,self.obj_y-0.3,self.obj_z+0.3]
@@ -173,7 +173,7 @@ class Engine123(Engine):
         #pos[1] = (self.obj_pos[1] - 0.25) 
         #pos[2] += 0.1
         #for i in range(19):
-        #   self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
+        #   self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
 
         #input("raw") 
 #        pos = self.obj_pos#self.robot.getEndEffectorPos()#[self.obj_x-0.2,self.obj_y-0.3,self.obj_z+0.3]
@@ -182,7 +182,7 @@ class Engine123(Engine):
 #        pos[1] = (self.obj_pos[1] - 0.2) 
 #        pos[2] += 0.1
 #        for i in range(19):
-#           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
+#           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gvalue)
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
         print("initialized")
 

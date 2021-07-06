@@ -126,19 +126,19 @@ class Engine5(Engine):
         pos = [0.3,0.0,0.51]
         orn = self.p.getQuaternionFromEuler([math.pi+0.5,0,0.])
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
 
         pos = [0.17,0.0,0.35]
         orn = self.p.getQuaternionFromEuler([math.pi+0.5,0,0.])
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         transl = np.random.uniform(-0.05,0.05,size=(2,))
         pos = self.robot.getEndEffectorPos()
         pos[:2] += transl
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         self.reset_obj()
 

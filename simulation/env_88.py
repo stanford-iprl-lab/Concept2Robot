@@ -88,7 +88,7 @@ class Engine88(Engine):
           #pos[2] += 0.05
           orn = self.robot.getEndEffectorOrn()
           for i in range(30):
-            self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
+            self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
 
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 
@@ -120,7 +120,7 @@ class Engine88(Engine):
         cur_pos[2] = self.robot.getEndEffectorPos()[2]
         print("before initialiaztion")
         for i in range(19):
-          self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
+          self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
 
 
         ####
@@ -132,7 +132,7 @@ class Engine88(Engine):
         cur_pos[2] = self.robot.getEndEffectorPos()[2] + np.random.uniform(-0.04,0.01)
         print("before initialiaztion")
         for i in range(19):
-          self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
+          self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
 
 #        cur_pos[2] += np.random.uniform(-0.05,0.05)
 
@@ -160,7 +160,7 @@ class Engine88(Engine):
         orn = self.robot.getEndEffectorOrn()
         gripper_v = 130
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
 #        time.sleep(3)
 
         cur_joint = self.robot.getJointValue()
@@ -170,7 +170,7 @@ class Engine88(Engine):
         cur_pos[:2] = cur_pos[:2] + pos_diff
         print("before initialiaztion")
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=gripper_v)
 
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 

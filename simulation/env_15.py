@@ -94,7 +94,7 @@ class Engine15(Engine):
         pos_diff = np.random.uniform(-0.1,0.1,size=(2,))
         cur_pos[:2] = cur_pos[:2] + pos_diff
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=130)
 
         self.obj2_posi = np.array(self.p.getBasePositionAndOrientation(self.obj2_id)[0])
         self.obj2_ori = self.p.getBasePositionAndOrientation(self.obj2_id)[1]

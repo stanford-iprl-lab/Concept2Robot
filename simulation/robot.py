@@ -46,11 +46,10 @@ class Robot:
 
        self.resources_dir = os.path.join(self.opti.project_dir, 'resources')
        self.urdf_dir = os.path.join(self.resources_dir,'urdf')
-       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq.urdf")
-
+       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq_updated.urdf")
+ 
        #model_path = os.path.join(self.urdf_dir,"panda_robotiq.urdf")
        print("model_path",model_path)
-
        self.robotId = self.p.loadURDF(model_path, [0, 0, 0], useFixedBase=True, flags=self.p.URDF_USE_SELF_COLLISION and self.p.URDF_USE_SELF_COLLISION_INCLUDE_PARENT) 
        self.p.resetBasePositionAndOrientation(self.robotId, [0, 0, 0], [0, 0, 0, 1])
 
@@ -121,7 +120,7 @@ class Robot:
         gripper_tip_pos = 0.5 * np.array(left_tip_pos) + 0.5 * np.array(right_tip_pos)
         return gripper_tip_pos
    
-    def operationSpacePositionControl(self,pos,orn=None,null_pose=None,gripperPos=None):
+    def positionControl(self,pos,orn=None,null_pose=None,gripperPos=None):
         if null_pose is None and orn is None:
             jointPoses = self.p.calculateInverseKinematics(self.robotId, self.endEffectorIndex, pos,
                                                       lowerLimits=self.ll,
@@ -170,30 +169,7 @@ class Robot:
 
         self.p.stepSimulation()
 
-       
-    def getJointValue(self):
-        jointList = []
-        for jointIndex in range(self.numJoint):
-            jointInfo = self.p.getJointState(self.robotId,jointIndex)
-            jointList.append(jointInfo[0])
-        return np.array(jointList)
-
-    def getGripperPos(self):
-      jointInfo = self.p.getJointState(self.robotId,self.activeGripperJointIndexList[-1])
-      angle = jointInfo[0]
-      angle = (angle - self.gripperLowerLimitList[-1]) / (self.gripperUpperLimitList[-1]-self.gripperLowerLimitList[-1]) * 255.0
-      return angle
-    
-    def gripperControl(self,gripperPos):
-        self.gripperOpen = 1.0 - gripperPos/255.0 
-        self.gripperPos = np.array(self.gripperUpperLimitList) * (1 - self.gripperOpen) + np.array(self.gripperLowerLimitList) * self.gripperOpen
-        self.gripperPos = self.gripperPos.tolist()
-        gripperForce = [self.gripperMaxForce] * len(self.activeGripperJointIndexList)
-        self.p.setJointMotorControlArray(bodyUniqueId=self.robotId,jointIndices=self.activeGripperJointIndexList,controlMode=self.p.POSITION_CONTROL,targetPositions=self.gripperPos,forces=gripperForce)
-        self.p.stepSimulation()
-
-
-    def operationSpaceTipPositionControl(self,pos,orn=None,null_pose=None,gripperPos=None):
+    def tipPositionControl(self,pos,orn=None,null_pose=None,gripperPos=None):
         if null_pose is None and orn is None:
             jointPoses = self.p.calculateInverseKinematics(self.robotId, self.gripper_left_tip_index, pos,
                                                       lowerLimits=self.ll,
@@ -246,6 +222,29 @@ class Robot:
 
         self.p.stepSimulation()
 
+
+    def getJointValue(self):
+        jointList = []
+        for jointIndex in range(self.numJoint):
+            jointInfo = self.p.getJointState(self.robotId,jointIndex)
+            jointList.append(jointInfo[0])
+        return np.array(jointList)
+
+    def getGripperPos(self):
+      jointInfo = self.p.getJointState(self.robotId,self.activeGripperJointIndexList[-1])
+      angle = jointInfo[0]
+      angle = (angle - self.gripperLowerLimitList[-1]) / (self.gripperUpperLimitList[-1]-self.gripperLowerLimitList[-1]) * 255.0
+      return angle
+    
+    def gripperControl(self,gripperPos):
+        self.gripperOpen = 1.0 - gripperPos/255.0 
+        self.gripperPos = np.array(self.gripperUpperLimitList) * (1 - self.gripperOpen) + np.array(self.gripperLowerLimitList) * self.gripperOpen
+        self.gripperPos = self.gripperPos.tolist()
+        gripperForce = [self.gripperMaxForce] * len(self.activeGripperJointIndexList)
+        self.p.setJointMotorControlArray(bodyUniqueId=self.robotId,jointIndices=self.activeGripperJointIndexList,controlMode=self.p.POSITION_CONTROL,targetPositions=self.gripperPos,forces=gripperForce)
+        self.p.stepSimulation()
+
+
     def colliDet(self):
       for x in self.activeGripperJointIndexList:
         for y in [0,1,2,3,4,5,6]:
@@ -268,5 +267,5 @@ class Robot:
             ceof = t / float(linestep)
             curr_pos = ceof * goalPos + (1. - ceof) * startPos
             time.sleep(0.03)
-            self.operationSpaceTipPositionControl(pos=curr_pos, orn=orn, null_pose=jointValues,
+            self.tipPositionControl(pos=curr_pos, orn=orn, null_pose=jointValues,
                                                            gripperPos=gripperV)

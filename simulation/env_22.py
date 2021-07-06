@@ -122,7 +122,7 @@ class Engine22(Engine):
         pos = [self.obj_x-0.03,self.obj_y-0.25,self.obj_z+0.0]
         orn = self.robot.getEndEffectorOrn()
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         start_id = 0
         cur_joint = self.robot.getJointValue()
@@ -132,7 +132,7 @@ class Engine22(Engine):
         cur_pos[:2] = cur_pos[:2] + pos_diff
         print("before initialiaztion")
         for i in range(19):
-           self.robot.operationSpacePositionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=135)
+           self.robot.positionControl(cur_pos,cur_orn,null_pose=cur_joint,gripperPos=135)
 
         for i in range(100):
           self.p.stepSimulation()

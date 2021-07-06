@@ -135,7 +135,7 @@ class Engine156(Engine):
         pos[1] += transl[1]
         pos[2] += 0.05
         for i in range(100):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         new_pos = np.array(self.p.getBasePositionAndOrientation(self.obj2_id)[0])
         new_pos[2] += 0.05

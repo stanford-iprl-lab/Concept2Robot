@@ -101,18 +101,18 @@ class Engine93(Engine):
 
         pos = [self.obj_position[0]-0.03, self.obj_position[1]+0.2, self.obj_position[2] + 0.18]
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
 
         pos = [self.obj_position[0]-0.03, self.obj_position[1]+0.15, self.obj_position[2] + 0.075]
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
 
         pos = self.robot.getEndEffectorPos()
         pos[0] += np.random.uniform(-0.03,0.03)
         pos[1] += np.random.uniform(0,0.05)
         pos[2] += np.random.uniform(0,0.01)
         for i in range(30):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=0)
 
         self.p.resetBasePositionAndOrientation (self.obj_id, self.obj_position, self.obj_orientation)
    

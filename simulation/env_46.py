@@ -134,16 +134,16 @@ class Engine46(Engine):
         pos = [obj_x+0.03,obj_y+0.3,obj_z+0.3]
         orn = self.p.getQuaternionFromEuler([math.pi,0,0])
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
         pos = [obj_x+0.0,obj_y+0.0,obj_z+0.3]
         orn = self.p.getQuaternionFromEuler([math.pi,0,0])
         for i in range(109):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         pos = [obj_x-0.05,obj_y+0.0,obj_z+0.22]
         orn = self.p.getQuaternionFromEuler([math.pi,0,0])
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
  
         self.fix_orn = self.p.getLinkState(self.robotId, 7)[1]
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]

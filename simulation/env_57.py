@@ -111,7 +111,7 @@ class Engine57(Engine):
         pos = [self.obj_x-0.03,self.obj_y-0.2,self.obj_z+0.1]
         orn = self.robot.getEndEffectorOrn()
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=220)
 
         start_id = 0
         self.p.resetBasePositionAndOrientation(self.obj_id,self.obj_position,self.obj_orientation)

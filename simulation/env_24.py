@@ -97,7 +97,7 @@ class Engine24(Engine):
         pos = [self.obj_x-0.03,self.obj_y-0.2,self.obj_z+0.0]
         orn = self.robot.getEndEffectorOrn()
         for i in range(19):
-           self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=20)
+           self.robot.positionControl(pos,orn,null_pose=self.null_q,gripperPos=20)
 
         self.init_height = self.p.getBasePositionAndOrientation(self.obj_id)[0][2]
         self.max_height = self.init_height
