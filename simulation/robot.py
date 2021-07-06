@@ -46,7 +46,7 @@ class Robot:
 
        self.resources_dir = os.path.join(self.opti.project_dir, 'resources')
        self.urdf_dir = os.path.join(self.resources_dir,'urdf')
-       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq_default.urdf")
+       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq.urdf")
 
        #model_path = os.path.join(self.urdf_dir,"panda_robotiq.urdf")
        print("model_path",model_path)
