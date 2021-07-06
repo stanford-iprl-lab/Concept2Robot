@@ -44,6 +44,10 @@ conda activate concept2robot
 
 5. Download [data](http://download.cs.stanford.edu/juno/Concept2Robot/data.zip), [models](http://download.cs.stanford.edu/juno/Concept2Robot/models.zip) folders into `ConceptManipulation` directory.
 
+6. Run the code
+```
+cd rl; bash train_5.sh
+```
 
 If you think our work is useful, please consider citing use with
 ```
