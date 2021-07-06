@@ -45,8 +45,6 @@ conda activate concept2robot
 5. Download [data](http://download.cs.stanford.edu/juno/Concept2Robot/data.zip), [models](http://download.cs.stanford.edu/juno/Concept2Robot/models.zip) folders into `ConceptManipulation` directory.
 
 
-## In Progress
-
 If you think our work is useful, please consider citing use with
 ```
 @inproceedings{lin2020concept,
