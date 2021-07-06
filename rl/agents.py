@@ -33,10 +33,7 @@ from torchvision import transforms
 #####
 from actor import Actor
 from critic import Critic
-from critic_goal_only import Critic_Goal_Only
-from actor_feedback import Actor_F
-from critic_feedback import Critic_F
-from master import Master, Master_F
+from master import Master
 
 transforms = transforms.Compose([
   transforms.ToPILImage(),
@@ -69,32 +66,8 @@ class Agent(object):
     self.critic = Critic(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_action, self.params).to(self.device)
     self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), self.params.a_lr)
 
-    self.critic_goal_only = Critic_Goal_Only(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_action, self.params).to(self.device)
-    self.critic_goal_only_optimizer = torch.optim.Adam(self.critic_goal_only.parameters(), self.params.a_lr)
-
     self.master = Master(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_action, self.params).to(self.device)
     self.master_optimizer = torch.optim.Adam(self.master.parameters(), self.params.m_lr)
-
-    self.actor_feedback = Actor_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
-    self.actor_feedback_target = Actor_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
-    self.actor_feedback_optimizer = torch.optim.Adam(self.actor_feedback.parameters(), self.params.a_f_lr)
-
-    self.critic_feedback = Critic_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
-    self.critic_feedback_optimizer = torch.optim.Adam(self.critic_feedback.parameters(), self.params.c_f_lr)
-    self.critic_feedback_target = Critic_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
-
-    self.master_feedback = Master_F(self.params.state_dim, self.params.a_dim, self.params.task_dim, self.params.max_feedback_action, self.params).to(self.device)
-    self.master_feedback_optimizer = torch.optim.Adam(self.master_feedback.parameters(), self.params.c_m_lr)
-
-    for param, target_param in zip(self.critic_feedback.parameters(), self.critic_feedback_target.parameters()):
-      target_param.data.copy_(param.data)
-
-    for param, target_param in zip(self.actor_feedback.parameters(), self.actor_feedback_target.parameters()):
-      target_param.data.copy_(param.data)
-
-    self.memory_feedback = np.zeros((self.params.mem_feedback_capacity,
-                          self.params.a_dim * 1 + self.params.state_dim * self.params.stack_num  + 3 + self.params.task_dim),
-                         dtype=np.float32)
 
     self.pointer_feedback = 0
     self.step_feedback = 0
