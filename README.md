@@ -20,7 +20,7 @@ over variations of the environment. We also show examples of successful generali
 git submodule init && git submodule update
 ```
 
-2.Compile bullet
+2. Compile bullet
 ```
 cd external/bullet3; bash build_cmake_pybullet_double.sh
 ```
