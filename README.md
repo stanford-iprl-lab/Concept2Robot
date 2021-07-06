@@ -20,7 +20,12 @@ over variations of the environment. We also show examples of successful generali
 git submodule init && git submodule update
 ```
 
-2. Install ffmpeg
+2. Compile bullet
+```
+cd external/bullet3; bash build_cmake_pybullet_double.sh
+```
+
+3. Install ffmpeg
 ```
 sudo apt install autoconf automake build-essential cmake libass-dev libfreetype6-dev libjpeg-dev libtheora-dev libtool libvorbis-dev libx264-dev pkg-config wget yasm zlib1g-dev
 wget https://www.ffmpeg.org/releases/ffmpeg-4.2.1.tar.xz
@@ -31,16 +36,14 @@ make
 sudo make install
 ```
 
-3. Create and Initialize Conda Environment
+4. Create and Initialize Conda Environment
 ```
 conda env create -f environment.yml
 conda activate concept2robot
 ```
 
-4. Download [data](http://download.cs.stanford.edu/juno/Concept2Robot/data.zip), [models](http://download.cs.stanford.edu/juno/Concept2Robot/models.zip) folders into `ConceptManipulation` directory.
+5. Download [data](http://download.cs.stanford.edu/juno/Concept2Robot/data.zip), [models](http://download.cs.stanford.edu/juno/Concept2Robot/models.zip) folders into `ConceptManipulation` directory.
 
-
-## In Progress
 
 If you think our work is useful, please consider citing use with
 ```
