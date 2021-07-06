@@ -145,9 +145,24 @@ class Engine5(Engine):
         self.fix_orn = self.p.getLinkState(self.robotId, 7)[1]
         self.start_pos = self.p.getLinkState (self.robotId, 7)[0]
 
+    def taskColliDet(self):
+        colli = False
+        for y in [0, 1, 2, 3, 4]:
+            c = self.p.getContactPoints(bodyA=self.obj_id, bodyB=self.robotId, linkIndexB=y)
+            # cl = self.p.getClosestPoints(bodyA=self.robotId,bodyB=self.robotId,distance=100,linkIndexA=x,linkIndexB=y)
+            if len(c) > 0:
+                colli = True
+                print("colli",colli, y)
+                return True
+        return False
 
     def get_success(self,suc=None):
         jointInfo = self.p.getJointState(self.obj_id,0)
+        if self.taskColliDet():
+            print("collision detected!")
+            #time.sleep(20)
+            return False
+
         if jointInfo[0] < 0.01:
           p1_ori = self.p.getLinkState (self.obj_id, 0)[1]
           rr = R.from_quat(p1_ori)

@@ -86,7 +86,7 @@ class Engine41(Engine):
         cam_pos = np.array([-0.09,0.04,0.89])
         dist_cam_obj = np.linalg.norm(cam_pos - obj_pos)
         #print("dist_cam_obj",dist_cam_obj,"dist",self.dist,"dist_cam_obj > self.dist + 0.1",dist_cam_obj > self.dist + 0.1)
-        if dist_cam_obj > self.dist + 0.1:
+        if dist_cam_obj > self.dist + 0.05:
           return True
         else: 
           return False

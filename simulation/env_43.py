@@ -33,8 +33,9 @@ class Engine43(Engine):
 
         texture_path = os.path.join(self.resources_dir,'textures/sun_textures')
         texture_file = os.path.join(texture_path,random.sample(os.listdir(texture_path),1)[0])
-        textid = self.p.loadTexture(texture_file)
-        self.p.changeVisualShape (self.obj_id, -1, textureUniqueId=textid)
+        #textid = self.p.loadTexture(texture_file)
+        #self.p.changeVisualShape (self.obj_id, -1, textureUniqueId=textid)
+        self.p.changeVisualShape(self.obj_id, -1, rgbaColor=[0.,0.,0.5, 1])
 
     def reset_obj(self):
         self.p.resetBasePositionAndOrientation(self.obj_id, self.obj_position, self.obj_orientation)
@@ -79,7 +80,7 @@ class Engine43(Engine):
 
     def get_success(self,seg=None):
         obj_pos = np.array(self.p.getBasePositionAndOrientation(self.obj_id)[0])
-        if obj_pos[2] < self.height - 0.1:
+        if obj_pos[2] < self.height - 0.05:
           return True
         else:
           return False

@@ -46,7 +46,7 @@ class Robot:
 
        self.resources_dir = os.path.join(self.opti.project_dir, 'resources')
        self.urdf_dir = os.path.join(self.resources_dir,'urdf')
-       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq.urdf")
+       model_path = os.path.join(self.opti.project_dir, "resources/urdf/franka_panda/panda_robotiq_default.urdf")
 
        #model_path = os.path.join(self.urdf_dir,"panda_robotiq.urdf")
        print("model_path",model_path)
@@ -256,3 +256,17 @@ class Robot:
               return True
       return False
 
+    def getJointValue(self):
+        jointList = []
+        for jointIndex in range(self.numJoint):
+            jointInfo = self.p.getJointState(self.robotId,jointIndex)
+            jointList.append(jointInfo[0])
+        return np.array(jointList)
+
+    def moveTo(self, startPos, goalPos, orn, jointValues, gripperV=0,  linestep=30):
+        for t in range(linestep):
+            ceof = t / float(linestep)
+            curr_pos = ceof * goalPos + (1. - ceof) * startPos
+            time.sleep(0.03)
+            self.operationSpaceTipPositionControl(pos=curr_pos, orn=orn, null_pose=jointValues,
+                                                           gripperPos=gripperV)

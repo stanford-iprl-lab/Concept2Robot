@@ -33,7 +33,7 @@ class Engine86(Engine):
         self.p.changeDynamics(self.obj_id, -1, lateralFriction=obj_friction_ceof)
         self.p.changeDynamics(self.obj_id, -1, rollingFriction=obj_friction_ceof)
         self.p.changeDynamics(self.obj_id, -1, spinningFriction=obj_friction_ceof)
-        self.p.changeDynamics (self.obj_id, -1, mass=20.0)
+        self.p.changeDynamics (self.obj_id, -1, mass=0.02)
         self.p.changeDynamics (self.obj_id, -1, linearDamping=20.0)
         self.p.changeDynamics (self.obj_id, -1, angularDamping=20.0)
         self.p.changeDynamics (self.obj_id, -1, contactStiffness=0.1, contactDamping=0.1)

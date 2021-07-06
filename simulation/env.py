@@ -742,8 +742,11 @@ class Engine:
         output = F.softmax(output,1)
         output = output.cpu().detach().numpy()
         output = np.squeeze(output)
-        reward = output[taskId] * 174.0 - 2.0
-        reward = 1. / (1. + np.exp(-reward))
+        if taskId < len(output):
+          reward = output[taskId] * 174.0 - 2.0
+          reward = 1. / (1. + np.exp(-reward))
+        else:
+          reward = 0.0
         return reward
  
     def get_tsm_video_reward(self, taskId=None):

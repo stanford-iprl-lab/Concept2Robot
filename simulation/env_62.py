@@ -34,6 +34,9 @@ class Engine62(Engine):
         self.data_q = np.load(os.path.join(expert_traj_dir,'q.npy'))
         self.data_dq = np.load(os.path.join(expert_traj_dir,'dq.npy'))
 
+        self.p.changeDynamics(self.table_id, -1, linearDamping=20.0)
+        self.p.changeDynamics(self.table_id, -1, angularDamping=20.0)
+        self.p.changeDynamics(self.table_id, -1, contactStiffness=10.0, contactDamping=0.1)
 
     def reset_new(self):
 

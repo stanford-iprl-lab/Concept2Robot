@@ -85,7 +85,7 @@ class Engine88(Engine):
 
         for _ in range(1):
           pos = self.robot.getEndEffectorPos()
-          pos[2] += 0.05
+          #pos[2] += 0.05
           orn = self.robot.getEndEffectorOrn()
           for i in range(30):
             self.robot.operationSpacePositionControl(pos,orn,null_pose=self.null_q,gripperPos=gripper_v)
